@@ -107,3 +107,15 @@ def test_generate_entries_requires_at_least_one_valid_row():
         response = client.post("/entries/generate", follow_redirects=True)
         assert response.status_code == 200
         assert "Add at least one entry before generating." in response.get_data(as_text=True)
+
+
+def test_add_entry_rejects_invalid_url():
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        response = client.post(
+            "/entries/add",
+            data={"name": "Bad URL", "url": "javascript:alert(1)"},
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        assert "URL must start with http:// or https://" in response.get_data(as_text=True)

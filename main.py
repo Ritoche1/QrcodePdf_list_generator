@@ -10,6 +10,7 @@ import threading
 import time
 import uuid
 import zipfile
+from urllib.parse import urlparse
 
 import qrcode
 from flask import Flask, jsonify, redirect, render_template_string, request, send_file, session, url_for
@@ -36,7 +37,30 @@ JOBS_LOCK = threading.Lock()
 
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32)
+
+
+def configure_secret_key(flask_app):
+    """Configure a persistent Flask secret key."""
+    env_secret = os.environ.get("FLASK_SECRET_KEY")
+    if env_secret:
+        flask_app.secret_key = env_secret
+        return
+
+    os.makedirs(flask_app.instance_path, exist_ok=True)
+    secret_file_path = os.path.join(flask_app.instance_path, "secret_key")
+    if os.path.exists(secret_file_path):
+        with open(secret_file_path, "rb") as secret_file:
+            flask_app.secret_key = secret_file.read()
+            return
+
+    generated_secret = os.urandom(32)
+    with open(secret_file_path, "wb") as secret_file:
+        secret_file.write(generated_secret)
+    os.chmod(secret_file_path, 0o600)
+    flask_app.secret_key = generated_secret
+
+
+configure_secret_key(app)
 
 
 def create_qr_code(name, url, image_dir=IMAGE_DIR):
@@ -219,6 +243,12 @@ def set_session_entries(entries):
         if str(row.get("name", "")).strip() and str(row.get("url", "")).strip()
     ]
     session.modified = True
+
+
+def is_valid_url(url):
+    """Return True if URL has an allowed scheme and host."""
+    parsed = urlparse(url)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
 def process_background_job(job_id, file_path, label_column, url_column):
@@ -525,6 +555,8 @@ def add_entry():
     url = request.form.get("url", "").strip()
     if not name or not url:
         return redirect(url_for("entries_page", error="Name and URL are required."))
+    if not is_valid_url(url):
+        return redirect(url_for("entries_page", error="URL must start with http:// or https://"))
     current_entries = get_session_entries()
     current_entries.append({"name": name, "url": url})
     set_session_entries(current_entries)
@@ -547,6 +579,8 @@ def update_entries():
         url = request.form.get(f"url_{index}", "").strip()
         if not name or not url:
             return redirect(url_for("entries_page", error="Each entry must include both name and URL."))
+        if not is_valid_url(url):
+            return redirect(url_for("entries_page", error="URL must start with http:// or https://"))
         updated_entries.append({"name": name, "url": url})
 
     set_session_entries(updated_entries)

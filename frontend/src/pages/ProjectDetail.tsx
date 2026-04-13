@@ -32,6 +32,30 @@ function createDefaultContent(type: ContentType): QrContentData {
   }
 }
 
+function hasMeaningfulContent(content: QrContentData): boolean {
+  switch (content.type) {
+    case 'url':
+      return content.url.trim().length > 0;
+    case 'text':
+      return content.text.trim().length > 0;
+    case 'vcard':
+      return (
+        content.first_name.trim().length > 0 ||
+        content.last_name.trim().length > 0 ||
+        (content.phone?.trim().length ?? 0) > 0 ||
+        (content.email?.trim().length ?? 0) > 0 ||
+        (content.organization?.trim().length ?? 0) > 0 ||
+        (content.title?.trim().length ?? 0) > 0 ||
+        (content.address?.trim().length ?? 0) > 0
+      );
+    case 'wifi':
+      return (
+        content.ssid.trim().length > 0 ||
+        (content.password?.trim().length ?? 0) > 0
+      );
+  }
+}
+
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -145,6 +169,18 @@ export function ProjectDetailPage() {
     } catch {
       toast.error('Failed to update entry');
     }
+  };
+
+  const handleEditTypeChange = (type: ContentType) => {
+    if (type === editContentType) return;
+    if (
+      hasMeaningfulContent(editContent) &&
+      !window.confirm('Changing type will replace the current content. Continue?')
+    ) {
+      return;
+    }
+    setEditContentType(type);
+    setEditContent(createDefaultContent(type));
   };
 
   return (
@@ -318,10 +354,7 @@ export function ProjectDetailPage() {
             <p className="text-sm font-medium text-gray-700">Type</p>
             <QrTypeSelector
               value={editContentType}
-              onChange={(type) => {
-                setEditContentType(type);
-                setEditContent(createDefaultContent(type));
-              }}
+              onChange={handleEditTypeChange}
             />
           </div>
           <QrContentForm

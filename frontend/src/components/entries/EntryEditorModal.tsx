@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, Input, Modal } from '@/components/ui';
 import { QrTypeSelector } from '@/components/qr/QrTypeSelector';
 import { QrContentForm } from '@/components/qr/QrContentForm';
-import type { ContentType, CreateEntry, Entry, QrContentData, UpdateEntry } from '@/types';
+import type { ContentType, CreateEntry, Entry, QrContentData } from '@/types';
 
 interface EntryEditorModalProps {
   isOpen: boolean;
@@ -10,7 +10,7 @@ interface EntryEditorModalProps {
   initialEntry?: Entry | null;
   loading?: boolean;
   onClose: () => void;
-  onSubmit: (payload: CreateEntry | UpdateEntry) => Promise<void>;
+  onSubmit: (payload: CreateEntry) => Promise<void>;
 }
 
 const defaultContentByType: Record<ContentType, QrContentData> = {

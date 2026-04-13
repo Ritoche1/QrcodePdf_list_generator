@@ -263,7 +263,7 @@ export function ProjectDetailPage() {
         mode="create"
         loading={isCreatingEntry}
         onClose={() => setManualEntryOpen(false)}
-        onSubmit={(payload) => handleCreateEntry(payload as CreateEntry)}
+        onSubmit={handleCreateEntry}
       />
 
       {/* Delete confirm */}

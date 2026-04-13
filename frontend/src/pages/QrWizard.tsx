@@ -19,7 +19,7 @@ import { useEntries, useCreateEntry, useDeleteEntry, useUpdateEntry } from '@/ho
 import { useToastContext } from '@/components/ui/Toast';
 import { pdfApi, downloadBlob } from '@/lib/api';
 import type {
-  ContentType, CreateEntry, Entry, EntryFilters, PdfLayoutOptions, QrContentData, QrDesignOptions, UpdateEntry,
+  ContentType, CreateEntry, Entry, EntryFilters, PdfLayoutOptions, QrContentData, QrDesignOptions,
 } from '@/types';
 
 type WizardStep = 'select' | 'design' | 'layout' | 'download';
@@ -221,13 +221,13 @@ export function QrWizardPage() {
   const activePdfPreview =
     generatedPdfs.find((item) => item.id === activePreviewId) ?? generatedPdfs[0] ?? null;
 
-  const handleSaveEntry = async (payload: CreateEntry | UpdateEntry) => {
+  const handleSaveEntry = async (payload: CreateEntry) => {
     try {
       if (editingEntry) {
         await updateEntry({ id: editingEntry.id, payload });
         toast.success('Entry updated');
       } else {
-        await createEntry(payload as CreateEntry);
+        await createEntry(payload);
         toast.success('Entry added');
       }
       setIsEntryEditorOpen(false);

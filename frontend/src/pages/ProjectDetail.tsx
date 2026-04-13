@@ -11,11 +11,13 @@ import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { EntryTable } from '@/components/entries/EntryTable';
 import { EntryFiltersBar } from '@/components/entries/EntryFilters';
 import { BulkActions } from '@/components/entries/BulkActions';
+import { EntryEditorModal } from '@/components/entries/EntryEditorModal';
 import { ImportModal } from '@/components/entries/ImportModal';
 import { useProject, projectKeys } from '@/hooks/useProjects';
-import { useEntries, useDeleteEntry, useBulkStatus, entryKeys } from '@/hooks/useEntries';
+import { useEntries, useDeleteEntry, useBulkStatus, useCreateEntry, entryKeys } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
 import { importExportApi, downloadBlob } from '@/lib/api';
+import type { CreateEntry } from '@/types';
 import type { EntryFilters } from '@/types';
 
 export function ProjectDetailPage() {
@@ -37,6 +39,7 @@ export function ProjectDetailPage() {
 
   // Modals
   const [importOpen, setImportOpen] = useState(false);
+  const [manualEntryOpen, setManualEntryOpen] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
@@ -44,6 +47,7 @@ export function ProjectDetailPage() {
   const { data: entriesData, isLoading: entriesLoading } = useEntries(id!, filters);
   const { mutateAsync: deleteEntry, isPending: isDeleting } = useDeleteEntry(id!);
   const { mutateAsync: bulkStatus, isPending: isBulkLoading } = useBulkStatus(id!);
+  const { mutateAsync: createEntry, isPending: isCreatingEntry } = useCreateEntry(id!);
 
   const entries = entriesData?.items ?? [];
   const total = entriesData?.total ?? 0;
@@ -104,6 +108,17 @@ export function ProjectDetailPage() {
     }
   };
 
+  const handleCreateEntry = async (payload: CreateEntry) => {
+    try {
+      await createEntry(payload);
+      await queryClient.invalidateQueries({ queryKey: projectKeys.detail(id!) });
+      toast.success('Entry added');
+      setManualEntryOpen(false);
+    } catch {
+      toast.error('Failed to add entry');
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -146,6 +161,14 @@ export function ProjectDetailPage() {
                 </button>
               </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => setManualEntryOpen(true)}
+            >
+              Add Entry
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -233,6 +256,14 @@ export function ProjectDetailPage() {
           toast.success(`Imported ${count} entries successfully`);
           setImportOpen(false);
         }}
+      />
+
+      <EntryEditorModal
+        isOpen={manualEntryOpen}
+        mode="create"
+        loading={isCreatingEntry}
+        onClose={() => setManualEntryOpen(false)}
+        onSubmit={(payload) => handleCreateEntry(payload as CreateEntry)}
       />
 
       {/* Delete confirm */}

@@ -2,8 +2,10 @@
 
 import argparse
 import os
+import shutil
 import tempfile
 import threading
+import time
 import uuid
 import zipfile
 
@@ -24,9 +26,11 @@ GRID_MARGIN_Y_MM = 10
 LABEL_OFFSET_X_MM = 16
 LABEL_OFFSET_Y_MM = 55
 ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
+TEMP_RETENTION_SECONDS = 1800
 
 UPLOADS = {}
 JOBS = {}
+UPLOADS_LOCK = threading.Lock()
 JOBS_LOCK = threading.Lock()
 app = Flask(__name__)
 
@@ -55,10 +59,7 @@ def validate_data(data):
 
 def sanitize_file_name(value, fallback_index):
     """Create a filesystem-safe file name base."""
-    base = "".join(
-        character if character.isalnum() or character in {"-", "_"} else "_"
-        for character in str(value).strip()
-    ).strip("_")
+    base = secure_filename(str(value).strip()).replace(".", "_").strip("_")
     return base or f"qr_{fallback_index}"
 
 
@@ -158,8 +159,35 @@ def create_zip_archive(image_dir, pdf_path, zip_path):
         archive.write(pdf_path, arcname=os.path.basename(pdf_path))
 
 
+def cleanup_stale_resources():
+    """Remove expired upload/job temporary directories."""
+    current_time = time.time()
+    stale_upload_ids = []
+    stale_job_ids = []
+
+    with UPLOADS_LOCK:
+        for upload_id, upload_info in UPLOADS.items():
+            if current_time - upload_info["created_at"] > TEMP_RETENTION_SECONDS:
+                stale_upload_ids.append(upload_id)
+        for upload_id in stale_upload_ids:
+            shutil.rmtree(UPLOADS[upload_id]["upload_dir"], ignore_errors=True)
+            del UPLOADS[upload_id]
+
+    with JOBS_LOCK:
+        for job_id, job_info in JOBS.items():
+            completed_at = job_info.get("completed_at")
+            if completed_at and current_time - completed_at > TEMP_RETENTION_SECONDS:
+                stale_job_ids.append(job_id)
+        for job_id in stale_job_ids:
+            work_dir = JOBS[job_id].get("working_directory")
+            if work_dir:
+                shutil.rmtree(work_dir, ignore_errors=True)
+            del JOBS[job_id]
+
+
 def process_background_job(job_id, file_path, label_column, url_column):
     """Generate QR assets in a background thread."""
+    working_directory = None
     try:
         data = load_data_from_file(file_path)
         mapped = normalize_mapped_data(data, label_column=label_column, url_column=url_column)
@@ -182,10 +210,18 @@ def process_background_job(job_id, file_path, label_column, url_column):
             JOBS[job_id]["progress"] = JOBS[job_id]["total"]
             JOBS[job_id]["pdf_path"] = pdf_path
             JOBS[job_id]["zip_path"] = zip_path
+            JOBS[job_id]["working_directory"] = working_directory
+            JOBS[job_id]["completed_at"] = time.time()
     except Exception as error:
         with JOBS_LOCK:
             JOBS[job_id]["status"] = "error"
             JOBS[job_id]["error"] = str(error)
+            JOBS[job_id]["completed_at"] = time.time()
+        if working_directory:
+            shutil.rmtree(working_directory, ignore_errors=True)
+    finally:
+        upload_dir = os.path.dirname(file_path)
+        shutil.rmtree(upload_dir, ignore_errors=True)
 
 
 UPLOAD_TEMPLATE = """
@@ -274,14 +310,16 @@ PROGRESS_TEMPLATE = """
 @app.route("/")
 def index():
     """Upload page."""
+    cleanup_stale_resources()
     return render_template_string(UPLOAD_TEMPLATE, error=request.args.get("error"))
 
 
 @app.route("/upload", methods=["POST"])
 def upload():
     """Receive file upload and show column mapping."""
+    cleanup_stale_resources()
     upload_file = request.files.get("file")
-    if upload_file is None or upload_file.filename is None or upload_file.filename == "":
+    if upload_file is None or not upload_file.filename:
         return redirect(url_for("index", error="Please select a CSV or XLSX file."))
 
     filename = secure_filename(upload_file.filename)
@@ -294,11 +332,18 @@ def upload():
     upload_file.save(file_path)
     try:
         data = load_data_from_file(file_path)
-    except Exception:
-        return redirect(url_for("index", error="Failed to parse file."))
+    except Exception as error:
+        shutil.rmtree(upload_dir, ignore_errors=True)
+        return redirect(url_for("index", error=f"Failed to parse file: {error}"))
 
     upload_id = uuid.uuid4().hex
-    UPLOADS[upload_id] = {"file_path": file_path, "filename": filename}
+    with UPLOADS_LOCK:
+        UPLOADS[upload_id] = {
+            "file_path": file_path,
+            "filename": filename,
+            "upload_dir": upload_dir,
+            "created_at": time.time(),
+        }
     return render_template_string(
         MAPPING_TEMPLATE,
         upload_id=upload_id,
@@ -310,10 +355,12 @@ def upload():
 @app.route("/start-job", methods=["POST"])
 def start_job():
     """Start background generation job."""
+    cleanup_stale_resources()
     upload_id = request.form.get("upload_id")
     url_column = request.form.get("url_column", "")
     label_column = request.form.get("label_column", "")
-    upload_info = UPLOADS.get(upload_id or "")
+    with UPLOADS_LOCK:
+        upload_info = UPLOADS.pop(upload_id or "", None)
     if upload_info is None:
         return redirect(url_for("index", error="Upload session expired. Please upload again."))
 
@@ -340,6 +387,7 @@ def start_job():
 @app.route("/job-status/<job_id>")
 def job_status(job_id):
     """Fetch processing progress for the given job."""
+    cleanup_stale_resources()
     with JOBS_LOCK:
         job = JOBS.get(job_id)
         if job is None:
@@ -357,6 +405,7 @@ def job_status(job_id):
 @app.route("/download/<job_id>/<file_type>")
 def download(job_id, file_type):
     """Download generated PDF or ZIP for a completed job."""
+    cleanup_stale_resources()
     with JOBS_LOCK:
         job = JOBS.get(job_id)
         if job is None or job["status"] != "complete":

@@ -331,7 +331,7 @@ export const entriesApi = {
     }));
     const { data } = await apiClient.post<Entry[]>(
       `/projects/${projectId}/entries/bulk`,
-      request
+      { entries: request }
     );
     return data.map((entry) => normalizeEntry(entry));
   },

@@ -103,7 +103,7 @@ export function EntryEditorModal({
       onClose={onClose}
       size="xl"
       title={mode === 'create' ? 'Add entry' : 'Edit entry'}
-      description="Manually add or update an entry before generating your PDF."
+      description="Manually add or update an entry for this project."
       footer={(
         <>
           <Button variant="outline" onClick={onClose} disabled={loading}>

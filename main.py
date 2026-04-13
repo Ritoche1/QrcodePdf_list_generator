@@ -95,38 +95,6 @@ def sanitize_file_name(value, fallback_index):
     return base or f"qr_{fallback_index}"
 
 
-def sanitize_download_pdf_name(value):
-    """Build a safe PDF filename from user input."""
-    raw_value = "" if value is None else str(value).strip()
-    base = secure_filename(raw_value)
-    if not base:
-        return OUTPUT_PDF
-    if not base.lower().endswith(".pdf"):
-        base = f"{base}.pdf"
-    return base
-
-
-def list_generated_pdfs(jobs=None):
-    """Return completed job metadata for generated PDFs."""
-    if jobs is None:
-        with JOBS_LOCK:
-            jobs = dict(JOBS)
-    completed_jobs = [
-        {
-            "job_id": job_id,
-            "filename": f"qr_codes_{job_id}.pdf",
-            "completed_at": job.get("completed_at"),
-        }
-        for job_id, job in jobs.items()
-        if job.get("status") == "complete" and job.get("pdf_path")
-    ]
-    return sorted(
-        completed_jobs,
-        key=lambda item: item.get("completed_at") or 0,
-        reverse=True,
-    )
-
-
 def normalize_mapped_data(data, label_column, url_column):
     """Normalize mapped columns into expected name/url fields."""
     if label_column not in data.columns:
@@ -175,15 +143,11 @@ def generate_pdf_file(data, image_dir=IMAGE_DIR, output_pdf=OUTPUT_PDF):
     images_per_row = 4
     rows_per_page = 4
     items_per_page = images_per_row * rows_per_page
-    if isinstance(data, pd.DataFrame):
-        rows = data.to_dict(orient="records")
-    else:
-        rows = list(data)
 
     pdf = FPDF("P", "mm", "A4")
     pdf.add_page()
     pdf.set_font("Times", size=20)
-    for index, row in enumerate(rows):
+    for index, row in enumerate(data):
         position_on_page = index % items_per_page
         if position_on_page == 0 and index != 0:
             pdf.add_page()
@@ -470,18 +434,6 @@ PROGRESS_TEMPLATE = """
     <p><a id="pdf_link" href="#">Download PDF</a></p>
     <p><a id="zip_link" href="#">Download ZIP</a></p>
   </div>
-  <div id="generated_pdfs" style="display:none;">
-    <h2>Generated PDFs</h2>
-    <p>
-      <label for="custom_pdf_name">Custom download name</label>
-      <input id="custom_pdf_name" type="text" placeholder="my-qr-codes.pdf">
-    </p>
-    <ul id="generated_pdf_list"></ul>
-    <div id="preview_container" style="display:none;">
-      <h3>Preview</h3>
-      <iframe id="pdf_preview_frame" title="PDF preview" width="100%" height="450"></iframe>
-    </div>
-  </div>
   <script>
     const jobId = "{{ job_id }}";
     const statusNode = document.getElementById("status");
@@ -489,49 +441,6 @@ PROGRESS_TEMPLATE = """
     const downloadsNode = document.getElementById("downloads");
     const pdfLink = document.getElementById("pdf_link");
     const zipLink = document.getElementById("zip_link");
-    const generatedPdfsNode = document.getElementById("generated_pdfs");
-    const generatedPdfListNode = document.getElementById("generated_pdf_list");
-    const customPdfNameNode = document.getElementById("custom_pdf_name");
-    const previewContainerNode = document.getElementById("preview_container");
-    const previewFrameNode = document.getElementById("pdf_preview_frame");
-    function buildPdfDownloadUrl(generatedJobId) {
-      const rawName = customPdfNameNode.value.trim();
-      if (!rawName) return `/download/${generatedJobId}/pdf`;
-      return `/download/${generatedJobId}/pdf?filename=${encodeURIComponent(rawName)}`;
-    }
-    function renderGeneratedPdfList(items) {
-      generatedPdfListNode.innerHTML = "";
-      previewContainerNode.style.display = "none";
-      previewFrameNode.src = "";
-      if (!items.length) return;
-      items.forEach((item, index) => {
-        const listItem = document.createElement("li");
-        const label = document.createElement("span");
-        label.textContent = item.filename;
-        label.style.marginRight = "0.5rem";
-        const previewLink = document.createElement("a");
-        previewLink.href = `/preview/${item.job_id}/pdf`;
-        previewLink.textContent = "Preview";
-        previewLink.style.marginRight = "0.5rem";
-        previewLink.addEventListener("click", (event) => {
-          event.preventDefault();
-          previewContainerNode.style.display = "block";
-          previewFrameNode.src = `/preview/${item.job_id}/pdf`;
-        });
-        const downloadLink = document.createElement("a");
-        downloadLink.textContent = "Download";
-        downloadLink.href = buildPdfDownloadUrl(item.job_id);
-        downloadLink.addEventListener("click", (event) => {
-          event.currentTarget.href = buildPdfDownloadUrl(item.job_id);
-        });
-        listItem.append(label, previewLink, downloadLink);
-        generatedPdfListNode.appendChild(listItem);
-        if (index === 0 && !previewFrameNode.src) {
-          previewContainerNode.style.display = "block";
-          previewFrameNode.src = `/preview/${item.job_id}/pdf`;
-        }
-      });
-    }
     const timer = setInterval(async () => {
       const response = await fetch(`/job-status/${jobId}`);
       const data = await response.json();
@@ -544,8 +453,6 @@ PROGRESS_TEMPLATE = """
         downloadsNode.style.display = "block";
         pdfLink.href = `/download/${jobId}/pdf`;
         zipLink.href = `/download/${jobId}/zip`;
-        generatedPdfsNode.style.display = "block";
-        renderGeneratedPdfList(data.generated_pdfs || []);
         statusNode.textContent = "Completed.";
       }
       if (data.status === "error") {
@@ -724,18 +631,16 @@ def job_status(job_id):
     cleanup_stale_resources()
     with JOBS_LOCK:
         job = JOBS.get(job_id)
-        jobs_snapshot = dict(JOBS)
         if job is None:
             return jsonify({"status": "error", "error": "Unknown job.", "progress": 0, "total": 0}), 404
-    return jsonify(
-        {
-            "status": job["status"],
-            "progress": job["progress"],
-            "total": job["total"],
-            "error": job["error"],
-            "generated_pdfs": list_generated_pdfs(jobs_snapshot),
-        }
-    )
+        return jsonify(
+            {
+                "status": job["status"],
+                "progress": job["progress"],
+                "total": job["total"],
+                "error": job["error"],
+            }
+        )
 
 
 @app.route("/download/<job_id>/<file_type>")
@@ -748,7 +653,7 @@ def download(job_id, file_type):
             return redirect(url_for("index", error="Job not available for download."))
         if file_type == "pdf":
             path = job["pdf_path"]
-            filename = sanitize_download_pdf_name(request.args.get("filename", ""))
+            filename = OUTPUT_PDF
         elif file_type == "zip":
             path = job["zip_path"]
             filename = "qr_codes.zip"
@@ -756,19 +661,6 @@ def download(job_id, file_type):
             return redirect(url_for("index", error="Unsupported download type."))
 
     return send_file(path, as_attachment=True, download_name=filename)
-
-
-@app.route("/preview/<job_id>/pdf")
-def preview_pdf(job_id):
-    """Open generated PDF inline for preview."""
-    cleanup_stale_resources()
-    with JOBS_LOCK:
-        job = JOBS.get(job_id)
-        if job is None or job["status"] != "complete":
-            return redirect(url_for("index", error="Job not available for preview."))
-        path = job["pdf_path"]
-
-    return send_file(path, mimetype="application/pdf")
 
 
 def run_cli_generation():

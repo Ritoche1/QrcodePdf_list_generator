@@ -48,19 +48,34 @@ async def _get_project_entries(
             status_code=400, detail="No entries found for PDF generation"
         )
 
-    return [
-        {
-            "id": e.id,
-            "project_id": e.project_id,
-            "content_type": e.content_type,
-            "content_data": e.content_data,
-            "label": e.label,
-            "serial_number": e.serial_number,
-            "status": e.status,
-            "tags": e.tags,
-        }
-        for e in entries
-    ]
+    normalized_entries: list[dict[str, Any]] = []
+    for e in entries:
+        content_data = e.content_data
+        if isinstance(content_data, str):
+            content_data = json.loads(content_data)
+        else:
+            # Ensure downstream processing cannot mutate ORM-attached objects.
+            content_data = json.loads(json.dumps(content_data))
+
+        tags = e.tags
+        if isinstance(tags, str):
+            tags = json.loads(tags)
+        else:
+            tags = json.loads(json.dumps(tags))
+
+        normalized_entries.append(
+            {
+                "id": e.id,
+                "project_id": e.project_id,
+                "content_type": e.content_type.value if hasattr(e.content_type, "value") else str(e.content_type),
+                "content_data": content_data,
+                "label": e.label,
+                "serial_number": e.serial_number,
+                "status": e.status.value if hasattr(e.status, "value") else str(e.status),
+                "tags": tags,
+            }
+        )
+    return normalized_entries
 
 
 @router.post("/projects/{project_id}/pdf")

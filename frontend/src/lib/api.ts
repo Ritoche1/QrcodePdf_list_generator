@@ -14,6 +14,7 @@ import type {
   PdfLayoutOptions,
   QrDesignOptions,
   ProjectPdfFile,
+  QrContentData,
 } from '@/types';
 
 export const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || '/api/v1';
@@ -90,7 +91,77 @@ interface BackendPdfRequest {
   entry_ids?: number[];
 }
 
+function mapEntryContentToBackend(content: QrContentData): Record<string, unknown> {
+  if (content.type === 'wifi') {
+    const security = content.encryption === 'None' ? 'nopass' : content.encryption;
+    return {
+      ssid: content.ssid,
+      password: content.password ?? '',
+      security,
+      hidden: content.hidden,
+    };
+  }
+
+  const { type: _type, ...contentData } = content;
+  return contentData;
+}
+
+function mapEntryContentFromBackend(
+  contentType: Entry['content_type'],
+  content: unknown
+): Entry['content'] {
+  const c = (content ?? {}) as Record<string, unknown>;
+
+  switch (contentType) {
+    case 'url':
+      return { type: 'url', url: typeof c.url === 'string' ? c.url : '' };
+    case 'text':
+      return { type: 'text', text: typeof c.text === 'string' ? c.text : '' };
+    case 'vcard':
+      return {
+        type: 'vcard',
+        first_name: typeof c.first_name === 'string' ? c.first_name : '',
+        last_name: typeof c.last_name === 'string' ? c.last_name : '',
+        phone: typeof c.phone === 'string' ? c.phone : undefined,
+        email: typeof c.email === 'string' ? c.email : undefined,
+        organization: typeof c.organization === 'string' ? c.organization : undefined,
+        title: typeof c.title === 'string' ? c.title : undefined,
+        address: typeof c.address === 'string' ? c.address : undefined,
+      };
+    case 'wifi': {
+      const rawSecurity =
+        typeof c.security === 'string'
+          ? c.security
+          : typeof c.encryption === 'string'
+          ? c.encryption
+          : 'WPA';
+      const security = rawSecurity.toUpperCase();
+      const encryption: 'WPA' | 'WEP' | 'None' =
+        security === 'WEP' ? 'WEP' : security === 'NONE' || security === 'NOPASS' ? 'None' : 'WPA';
+      return {
+        type: 'wifi',
+        ssid: typeof c.ssid === 'string' ? c.ssid : '',
+        password: typeof c.password === 'string' ? c.password : undefined,
+        encryption,
+        hidden: Boolean(c.hidden),
+      };
+    }
+    default:
+      return { type: 'text', text: '' };
+  }
+}
+
+function mapEntryWritePayload(payload: CreateEntry | UpdateEntry): Record<string, unknown> {
+  const request: Record<string, unknown> = { ...payload };
+  if (payload.content) {
+    request.content_data = mapEntryContentToBackend(payload.content);
+    delete request.content;
+  }
+  return request;
+}
+
 function normalizeEntry(payload: Partial<Entry> & { id?: string | number }): Entry {
+  const contentType = payload.content_type ?? 'text';
   const content =
     (payload as Partial<Entry> & { content_data?: Entry['content'] }).content ??
     (payload as Partial<Entry> & { content_data?: Entry['content'] }).content_data;
@@ -99,8 +170,8 @@ function normalizeEntry(payload: Partial<Entry> & { id?: string | number }): Ent
     id: String(payload.id ?? ''),
     project_id: String(payload.project_id ?? ''),
     label: payload.label ?? undefined,
-    content_type: payload.content_type ?? 'text',
-    content: (content ?? { type: 'text', text: '' }) as Entry['content'],
+    content_type: contentType,
+    content: mapEntryContentFromBackend(contentType, content),
     status: payload.status ?? 'draft',
     tags: Array.isArray(payload.tags) ? payload.tags : [],
     qr_generated: payload.qr_generated ?? Boolean(payload.qr_image_url),
@@ -246,7 +317,7 @@ export const entriesApi = {
   create: async (projectId: string, payload: CreateEntry): Promise<Entry> => {
     const { data } = await apiClient.post<Entry>(
       `/projects/${projectId}/entries`,
-      payload
+      mapEntryWritePayload(payload)
     );
     return normalizeEntry(data);
   },
@@ -257,13 +328,13 @@ export const entriesApi = {
   ): Promise<Entry[]> => {
     const { data } = await apiClient.post<Entry[]>(
       `/projects/${projectId}/entries/bulk`,
-      { entries }
+      entries.map((entry) => mapEntryWritePayload(entry))
     );
     return data.map((entry) => normalizeEntry(entry));
   },
 
   update: async (id: string, payload: UpdateEntry): Promise<Entry> => {
-    const { data } = await apiClient.put<Entry>(`/entries/${id}`, payload);
+    const { data } = await apiClient.put<Entry>(`/entries/${id}`, mapEntryWritePayload(payload));
     return normalizeEntry(data);
   },
 

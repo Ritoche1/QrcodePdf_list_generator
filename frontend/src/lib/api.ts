@@ -161,7 +161,8 @@ function normalizeEntry(payload: Partial<Entry> & { id?: string | number }): Ent
   };
 }
 
-function mapEntryPayloadContent(content: QrPreviewRequest['content']): Record<string, unknown> {
+function mapEntryPayloadContent(content?: QrPreviewRequest['content']): Record<string, unknown> {
+  if (!content) return {};
   const { type, ...contentData } = content as QrPreviewRequest['content'] & {
     security?: string;
     encryption?: string;
@@ -337,10 +338,10 @@ export const entriesApi = {
   },
 
   update: async (id: string, payload: UpdateEntry): Promise<Entry> => {
-    const request: Record<string, unknown> = { ...payload };
-    if (payload.content) {
-      request.content_data = mapEntryPayloadContent(payload.content);
-      delete request.content;
+    const { content, ...rest } = payload;
+    const request: Record<string, unknown> = { ...rest };
+    if (content) {
+      request.content_data = mapEntryPayloadContent(content);
     }
     const { data } = await apiClient.put<Entry>(`/entries/${id}`, request);
     return normalizeEntry(data);

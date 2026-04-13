@@ -25,7 +25,13 @@ function normalizeContent(contentType: ContentType, value?: QrContentData): QrCo
 
   if (contentType !== 'wifi') return value;
 
-  const wifi = value as unknown as Record<string, unknown>;
+  const wifi = value as Partial<{
+    security: string;
+    encryption: string;
+    ssid: string;
+    password: string;
+    hidden: boolean;
+  }>;
   const security = typeof wifi.security === 'string' ? wifi.security : undefined;
   const encryptionValue = typeof wifi.encryption === 'string' ? wifi.encryption : undefined;
   const encryption = encryptionValue ?? (security === 'nopass' ? 'None' : security) ?? 'WPA';

@@ -121,3 +121,51 @@ async def test_stats(client: AsyncClient):
     assert "total_projects" in data
     assert "total_entries" in data
     assert "entries_by_status" in data
+
+
+@pytest.mark.asyncio
+async def test_project_pdf_history_listing_and_download(client: AsyncClient):
+    # Create project + one entry
+    r = await client.post("/api/v1/projects", json={"name": "PDF History Test"})
+    assert r.status_code == 201
+    pid = r.json()["id"]
+
+    r = await client.post(
+        f"/api/v1/projects/{pid}/entries",
+        json={
+            "content_type": "url",
+            "content_data": {"url": "https://example.com"},
+            "label": "History Row",
+        },
+    )
+    assert r.status_code == 201
+
+    payload = {
+        "layout": {
+            "page_size": "A4",
+            "columns": 2,
+            "rows": 2,
+            "fg_color": "#ff0000",
+            "bg_color": "#ffffff",
+            "error_correction": "H",
+        }
+    }
+
+    r = await client.post(f"/api/v1/projects/{pid}/pdf", json=payload)
+    assert r.status_code == 200
+    r = await client.post(f"/api/v1/projects/{pid}/pdf", json=payload)
+    assert r.status_code == 200
+
+    r = await client.get(f"/api/v1/projects/{pid}/pdfs")
+    assert r.status_code == 200
+    files = r.json()
+    assert len(files) >= 2
+    assert all(item["file_name"].startswith(f"project_{pid}_") for item in files)
+
+    first_file_name = files[0]["file_name"]
+    r = await client.get(
+        f"/api/v1/projects/{pid}/pdfs/download",
+        params={"file_name": first_file_name},
+    )
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"

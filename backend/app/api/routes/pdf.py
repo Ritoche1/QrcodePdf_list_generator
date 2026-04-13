@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from app.schemas.pdf import ExportZipRequest, PDFGenerateRequest, PDFGenerateRes
 from app.services.pdf_service import (
     QRPDFGenerator,
     generate_export_zip,
+    list_project_pdfs,
     save_pdf,
 )
 
@@ -97,6 +99,40 @@ async def download_pdf(
         media_type="application/pdf",
         filename=f"project_{project_id}.pdf",
     )
+
+
+@router.get("/projects/{project_id}/pdfs")
+async def list_pdfs(
+    project_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> list[dict[str, Any]]:
+    """List all generated PDFs for a project."""
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return list_project_pdfs(project_id)
+
+
+@router.get("/projects/{project_id}/pdfs/download")
+async def download_project_pdf(
+    project_id: int,
+    file_name: str = Query(..., min_length=1),
+    session: AsyncSession = Depends(get_session),
+) -> FileResponse:
+    """Download a specific generated PDF for a project."""
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not re.fullmatch(rf"project_{project_id}_[0-9T]+Z\.pdf", file_name):
+        raise HTTPException(status_code=400, detail="Invalid PDF file name")
+
+    pdf_path = (settings.files_dir / "pdf" / file_name).resolve()
+    allowed_dir = (settings.files_dir / "pdf").resolve()
+    if pdf_path.parent != allowed_dir or not pdf_path.exists():
+        raise HTTPException(status_code=404, detail="PDF file not found")
+
+    return FileResponse(path=str(pdf_path), media_type="application/pdf")
 
 
 @router.post("/projects/{project_id}/pdf/preview")

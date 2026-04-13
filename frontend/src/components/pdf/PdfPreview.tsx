@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { clsx } from 'clsx';
 import { LoadingSpinner } from '@/components/ui';
 import { pdfApi } from '@/lib/api';
-import type { PdfLayoutOptions } from '@/types';
+import type { PdfLayoutOptions, QrDesignOptions } from '@/types';
 
 interface PdfPreviewProps {
   projectId: string;
   options: PdfLayoutOptions;
+  design?: Pick<QrDesignOptions, 'foreground_color' | 'background_color' | 'error_correction'>;
   className?: string;
   enabled?: boolean;
 }
@@ -20,7 +21,13 @@ function useDebounce<T>(value: T, delay: number): T {
   return d;
 }
 
-export function PdfPreview({ projectId, options, className, enabled = true }: PdfPreviewProps) {
+export function PdfPreview({
+  projectId,
+  options,
+  design,
+  className,
+  enabled = true,
+}: PdfPreviewProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +40,7 @@ export function PdfPreview({ projectId, options, className, enabled = true }: Pd
     setError(null);
 
     pdfApi
-      .preview(projectId, debouncedOptions)
+      .preview(projectId, debouncedOptions, design)
       .then((blob) => {
         const url = URL.createObjectURL(blob);
         setImageUrl((prev) => {
@@ -45,7 +52,7 @@ export function PdfPreview({ projectId, options, className, enabled = true }: Pd
         setError('Could not generate PDF preview');
       })
       .finally(() => setLoading(false));
-  }, [projectId, debouncedOptions, enabled]);
+  }, [projectId, debouncedOptions, design, enabled]);
 
   return (
     <div className={clsx('flex flex-col', className)}>

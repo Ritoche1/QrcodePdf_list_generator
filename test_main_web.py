@@ -2,9 +2,10 @@ import tempfile
 import time
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
-from main import JOBS, UPLOADS, UPLOADS_LOCK, app
+from main import JOBS, UPLOADS, UPLOADS_LOCK, app, generate_pdf_file, generate_qr_codes
 
 
 @pytest.fixture(autouse=True)
@@ -119,3 +120,90 @@ def test_add_entry_rejects_invalid_url():
         )
         assert response.status_code == 200
         assert "URL must start with http:// or https://" in response.get_data(as_text=True)
+
+
+def test_job_status_lists_generated_pdfs_for_completed_jobs():
+    app.config["TESTING"] = True
+    with tempfile.TemporaryDirectory() as work_dir:
+        pdf_path = Path(work_dir) / "qr_codes.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4\n")
+        JOBS["job-new"] = {
+            "status": "complete",
+            "progress": 1,
+            "total": 1,
+            "error": "",
+            "pdf_path": str(pdf_path),
+            "zip_path": str(Path(work_dir) / "qr_codes.zip"),
+            "completed_at": time.time(),
+        }
+        JOBS["job-old"] = {
+            "status": "complete",
+            "progress": 1,
+            "total": 1,
+            "error": "",
+            "pdf_path": str(pdf_path),
+            "zip_path": str(Path(work_dir) / "qr_codes.zip"),
+            "completed_at": time.time() - 10,
+        }
+
+        with app.test_client() as client:
+            response = client.get("/job-status/job-new")
+            assert response.status_code == 200
+            payload = response.get_json()
+            assert payload["status"] == "complete"
+            assert payload["generated_pdfs"][0]["job_id"] == "job-new"
+            assert payload["generated_pdfs"][1]["job_id"] == "job-old"
+
+
+def test_download_pdf_uses_custom_filename_query_param():
+    app.config["TESTING"] = True
+    with tempfile.TemporaryDirectory() as work_dir:
+        pdf_path = Path(work_dir) / "qr_codes.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4\n")
+        JOBS["download-job"] = {
+            "status": "complete",
+            "progress": 1,
+            "total": 1,
+            "error": "",
+            "pdf_path": str(pdf_path),
+            "zip_path": str(Path(work_dir) / "qr_codes.zip"),
+            "completed_at": time.time(),
+        }
+        with app.test_client() as client:
+            response = client.get("/download/download-job/pdf?filename=My Final PDF")
+            assert response.status_code == 200
+            assert "attachment; filename=My_Final_PDF.pdf" in response.headers["Content-Disposition"]
+
+
+def test_preview_pdf_serves_inline_pdf():
+    app.config["TESTING"] = True
+    with tempfile.TemporaryDirectory() as work_dir:
+        pdf_path = Path(work_dir) / "qr_codes.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4\n")
+        JOBS["preview-job"] = {
+            "status": "complete",
+            "progress": 1,
+            "total": 1,
+            "error": "",
+            "pdf_path": str(pdf_path),
+            "zip_path": str(Path(work_dir) / "qr_codes.zip"),
+            "completed_at": time.time(),
+        }
+        with app.test_client() as client:
+            response = client.get("/preview/preview-job/pdf")
+            assert response.status_code == 200
+            assert response.headers["Content-Type"].startswith("application/pdf")
+            assert "attachment" not in response.headers.get("Content-Disposition", "")
+
+
+def test_generate_pdf_file_accepts_dataframe_output():
+    with tempfile.TemporaryDirectory() as work_dir:
+        image_dir = Path(work_dir) / "image"
+        output_pdf = Path(work_dir) / "output.pdf"
+        generated = generate_qr_codes(
+            pd.DataFrame([{"name": "Row", "url": "https://example.com"}]),
+            image_dir=str(image_dir),
+        )
+        generate_pdf_file(generated, image_dir=str(image_dir), output_pdf=str(output_pdf))
+        assert output_pdf.exists()
+        assert output_pdf.stat().st_size > 0

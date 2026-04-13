@@ -36,15 +36,16 @@ export function Dashboard() {
   const navigate = useNavigate();
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const { data: stats, isLoading: statsLoading } = useStats();
+  const projectsList = Array.isArray(projects) ? projects : [];
 
   const isLoading = projectsLoading || statsLoading;
 
   // Fallback stats derived from project data if backend /stats is unavailable
-  const totalProjects = stats?.total_projects ?? projects?.length ?? 0;
-  const totalEntries = stats?.total_entries ?? projects?.reduce((s, p) => s + p.entry_count, 0) ?? 0;
-  const totalQr = stats?.total_qr_generated ?? projects?.reduce((s, p) => s + p.generated_count, 0) ?? 0;
+  const totalProjects = stats?.total_projects ?? projectsList.length;
+  const totalEntries = stats?.total_entries ?? projectsList.reduce((s, p) => s + p.entry_count, 0);
+  const totalQr = stats?.total_qr_generated ?? projectsList.reduce((s, p) => s + p.generated_count, 0);
 
-  const recentProjects = stats?.recent_projects ?? (projects ?? []).slice(0, 5);
+  const recentProjects = stats?.recent_projects ?? projectsList.slice(0, 5);
 
   if (isLoading) return <PageLoader />;
 
@@ -146,7 +147,7 @@ export function Dashboard() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {project.tags.slice(0, 2).map((tag) => (
+                      {(project.tags ?? []).slice(0, 2).map((tag) => (
                         <Badge key={tag} variant="gray">
                           {tag}
                         </Badge>

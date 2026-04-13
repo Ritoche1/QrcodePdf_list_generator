@@ -68,7 +68,7 @@ export function ImportModal({ projectId, isOpen, onClose, onSuccess }: ImportMod
     setError(null);
     try {
       const result = await importExportApi.importConfirm(projectId, {
-        mapping,
+        column_mapping: mapping,
         file_id: fileId,
       });
       setImportedCount(result.imported);

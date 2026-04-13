@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   FolderOpen,
   QrCode,
+  BookOpen,
   ChevronRight,
 } from 'lucide-react';
 
@@ -18,6 +19,7 @@ const navItems: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard, exact: true },
   { label: 'Projects', to: '/projects', icon: FolderOpen },
   { label: 'Create QR', to: '/qr/create', icon: QrCode },
+  { label: 'Documentation', to: '/docs', icon: BookOpen },
 ];
 
 export function Sidebar() {

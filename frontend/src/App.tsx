@@ -7,6 +7,7 @@ import { ProjectsPage } from '@/pages/Projects';
 import { ProjectDetailPage } from '@/pages/ProjectDetail';
 import { QrWizardPage } from '@/pages/QrWizard';
 import { SingleQrCreatorPage } from '@/pages/SingleQrCreator';
+import { DocumentationPage } from '@/pages/Documentation';
 import { NotFoundPage } from '@/pages/NotFound';
 
 const queryClient = new QueryClient({
@@ -22,7 +23,12 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <BrowserRouter>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
           <Routes>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
@@ -30,6 +36,7 @@ export default function App() {
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
               <Route path="/projects/:id/generate" element={<QrWizardPage />} />
               <Route path="/qr/create" element={<SingleQrCreatorPage />} />
+              <Route path="/docs" element={<DocumentationPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>

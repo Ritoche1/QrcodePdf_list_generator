@@ -10,6 +10,12 @@ CSV_FILE = "data.csv"
 IMAGE_DIR = "image"
 OUTPUT_PDF = "qr_codes.pdf"
 REQUIRED_COLUMNS = {"name", "url"}
+QR_SIZE_MM = 50
+CELL_HEIGHT_MM = 60
+GRID_MARGIN_X_MM = 10
+GRID_MARGIN_Y_MM = 10
+LABEL_OFFSET_X_MM = 16
+LABEL_OFFSET_Y_MM = 55
 
 
 def create_qr_code(name, url):
@@ -57,12 +63,12 @@ def generate_pdf_file(data):
 
         column_index = position_on_page % images_per_row
         row_index = position_on_page // images_per_row
-        x = 10 + 50 * column_index
-        y = 10 + 60 * row_index
+        x = GRID_MARGIN_X_MM + QR_SIZE_MM * column_index
+        y = GRID_MARGIN_Y_MM + CELL_HEIGHT_MM * row_index
 
         path = os.path.join(IMAGE_DIR, f"{row['name']}.png")
-        pdf.image(path, x, y, 50, 50)
-        pdf.text(26 + 50 * column_index, y + 55, row["name"])
+        pdf.image(path, x, y, QR_SIZE_MM, QR_SIZE_MM)
+        pdf.text(x + LABEL_OFFSET_X_MM, y + LABEL_OFFSET_Y_MM, row["name"])
 
     pdf.output(OUTPUT_PDF)
 

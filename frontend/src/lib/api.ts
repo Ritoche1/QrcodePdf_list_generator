@@ -267,7 +267,7 @@ export const entriesApi = {
   },
 
   bulkStatus: async (ids: string[], status: string): Promise<void> => {
-    await apiClient.patch('/entries/bulk-status', { ids, status });
+    await apiClient.patch('/entries/bulk-status', { entry_ids: ids, status });
   },
 
   bulkTags: async (

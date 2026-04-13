@@ -56,7 +56,7 @@ export function PageHeader({
           ))}
         </div>
       )}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{title}</h1>
           {description && (
@@ -64,7 +64,9 @@ export function PageHeader({
           )}
         </div>
         {actions && (
-          <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>
+          <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:flex-shrink-0">
+            {actions}
+          </div>
         )}
       </div>
     </div>

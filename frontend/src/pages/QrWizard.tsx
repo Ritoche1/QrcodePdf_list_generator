@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { Check, ChevronRight } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, LoadingSpinner } from '@/components/ui';
+import { Button, Card, Input } from '@/components/ui';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { QrTypeSelector } from '@/components/qr/QrTypeSelector';
 import { QrContentForm } from '@/components/qr/QrContentForm';
@@ -48,6 +48,25 @@ const defaultPdfLayout: PdfLayoutOptions = {
   show_labels: true,
   font_size: 8,
 };
+const MAX_GENERATED_PDFS = 10;
+
+interface GeneratedPdfItem {
+  id: string;
+  blob: Blob;
+  previewUrl: string;
+  fileName: string;
+  createdAt: string;
+}
+
+function normalizePdfFileName(value: string, fallback: string): string {
+  const trimmed = value.trim();
+  const safe = trimmed === '' ? fallback : trimmed;
+  return safe.toLowerCase().endsWith('.pdf') ? safe : `${safe}.pdf`;
+}
+
+function generatePdfId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function StepIndicator({ currentStep }: { currentStep: WizardStep }) {
   const currentIndex = WIZARD_STEPS.findIndex((s) => s.key === currentStep);
@@ -108,6 +127,12 @@ export function QrWizardPage() {
   const [design, setDesign] = useState<QrDesignOptions>(defaultDesign);
   const [pdfLayout, setPdfLayout] = useState<PdfLayoutOptions>(defaultPdfLayout);
   const [downloading, setDownloading] = useState(false);
+  const [customPdfName, setCustomPdfName] = useState('');
+  const [generatedPdfs, setGeneratedPdfs] = useState<GeneratedPdfItem[]>([]);
+  const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
+  const generatedPdfUrlsRef = useRef<string[]>([]);
+  const hasCustomizedPdfNameRef = useRef(false);
+  const lastProjectIdRef = useRef<string | null>(null);
 
   // For design preview
   const [previewContentType, setPreviewContentType] = useState<ContentType>('url');
@@ -127,8 +152,7 @@ export function QrWizardPage() {
     [pdfLayout, selectedIds]
   );
 
-  if (projectLoading) return <PageLoader />;
-  if (!project) return <div className="p-8 text-gray-500">Project not found.</div>;
+  const defaultPdfName = `${project?.name ?? 'qr-codes'}-qr.pdf`;
 
   const goNext = () => {
     const idx = WIZARD_STEPS.findIndex((s) => s.key === step);
@@ -145,18 +169,64 @@ export function QrWizardPage() {
     else setSelectedIds(new Set(entries.map((e) => e.id)));
   };
 
-  const handleDownload = async () => {
+  const handleGeneratePdf = async () => {
+    if (!project) return;
     setDownloading(true);
     try {
       const blob = await pdfApi.generate(id!, layoutWithEntries);
-      downloadBlob(blob, `${project.name}-qr.pdf`);
-      toast.success('PDF downloaded successfully');
+      const generatedName = normalizePdfFileName(customPdfName, defaultPdfName);
+      const previewUrl = URL.createObjectURL(blob);
+      generatedPdfUrlsRef.current.push(previewUrl);
+      const generatedPdf = {
+        id: generatePdfId(),
+        blob,
+        previewUrl,
+        fileName: generatedName,
+        createdAt: new Date().toISOString(),
+      };
+      setGeneratedPdfs((prev) => {
+        const next = [generatedPdf, ...prev];
+        if (next.length <= MAX_GENERATED_PDFS) return next;
+        const removed = next.slice(MAX_GENERATED_PDFS);
+        removed.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+        generatedPdfUrlsRef.current = generatedPdfUrlsRef.current.filter(
+          (url) => !removed.some((item) => item.previewUrl === url)
+        );
+        return next.slice(0, MAX_GENERATED_PDFS);
+      });
+      setActivePreviewId(generatedPdf.id);
+      toast.success('PDF generated. Preview and download it below.');
     } catch {
       toast.error('Failed to generate PDF');
     } finally {
       setDownloading(false);
     }
   };
+
+  const handleDownloadGeneratedPdf = (item: GeneratedPdfItem) => {
+    downloadBlob(item.blob, normalizePdfFileName(item.fileName, defaultPdfName));
+    toast.success('PDF downloaded successfully');
+  };
+
+  const activePdfPreview =
+    generatedPdfs.find((item) => item.id === activePreviewId) ?? generatedPdfs[0] ?? null;
+
+  useEffect(() => {
+    if (!project) return;
+    if (lastProjectIdRef.current !== project.id) {
+      lastProjectIdRef.current = project.id;
+      hasCustomizedPdfNameRef.current = false;
+    }
+    if (hasCustomizedPdfNameRef.current) return;
+    setCustomPdfName(`${project.name}-qr.pdf`);
+  }, [project]);
+
+  useEffect(() => () => {
+    generatedPdfUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+
+  if (projectLoading) return <PageLoader />;
+  if (!project) return <div className="p-8 text-gray-500">Project not found.</div>;
 
   const stepIndex = WIZARD_STEPS.findIndex((s) => s.key === step);
   const isLastStep = stepIndex === WIZARD_STEPS.length - 1;
@@ -264,9 +334,10 @@ export function QrWizardPage() {
 
       {/* ─── Step: Download ──────────────────────────────────────────────── */}
       {step === 'download' && (
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-4xl mx-auto space-y-5">
           <Card>
-            <div className="text-center py-6">
+            <div className="py-6">
+              <div className="max-w-lg mx-auto text-center">
               <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg viewBox="0 0 24 24" className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -299,10 +370,23 @@ export function QrWizardPage() {
                 </div>
               </div>
 
+              <div className="mb-4 text-left">
+                <Input
+                  label="PDF filename"
+                  value={customPdfName}
+                  onChange={(event) => {
+                    hasCustomizedPdfNameRef.current = true;
+                    setCustomPdfName(event.target.value);
+                  }}
+                  placeholder={defaultPdfName}
+                  hint="Used as the default name when generating and downloading PDFs."
+                />
+              </div>
+
               <Button
                 size="lg"
                 className="w-full"
-                onClick={handleDownload}
+                onClick={handleGeneratePdf}
                 loading={downloading}
                 leftIcon={
                   downloading ? undefined : (
@@ -312,8 +396,85 @@ export function QrWizardPage() {
                   )
                 }
               >
-                {downloading ? 'Generating PDF…' : 'Download PDF'}
+                {downloading ? 'Generating PDF…' : 'Generate PDF'}
               </Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-800">
+                  Generated PDFs ({generatedPdfs.length})
+                </h4>
+                {generatedPdfs.length === 0 && (
+                  <p className="text-xs text-gray-500">Generate a PDF to see it listed here.</p>
+                )}
+              </div>
+
+              {generatedPdfs.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    {generatedPdfs.map((item) => (
+                      <div
+                        key={item.id}
+                        className={clsx(
+                          'rounded-lg border p-3',
+                          activePdfPreview?.id === item.id
+                            ? 'border-indigo-300 bg-indigo-50/40'
+                            : 'border-gray-200 bg-white'
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <button
+                            type="button"
+                            className="text-sm font-medium text-left text-indigo-700 hover:underline"
+                            onClick={() => setActivePreviewId(item.id)}
+                          >
+                            Preview
+                          </button>
+                          <span className="text-xs text-gray-500">
+                            {new Date(item.createdAt).toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <Input
+                          value={item.fileName}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setGeneratedPdfs((prev) =>
+                              prev.map((pdf) => (pdf.id === item.id ? { ...pdf, fileName: value } : pdf))
+                            );
+                          }}
+                          placeholder={defaultPdfName}
+                        />
+                        <div className="mt-2 flex justify-end">
+                          <Button
+                            size="sm"
+                            onClick={() => handleDownloadGeneratedPdf(item)}
+                          >
+                            Download
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 min-h-72">
+                    {activePdfPreview ? (
+                      <iframe
+                        title="Generated PDF preview"
+                        src={activePdfPreview.previewUrl}
+                        className="w-full h-72 rounded border-0 bg-white"
+                      />
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-sm text-gray-500">
+                        Preview will appear here.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         </div>

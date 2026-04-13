@@ -5,6 +5,7 @@ import io
 import json
 import math
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -190,13 +191,42 @@ class QRPDFGenerator:
 
 
 def save_pdf(project_id: int, pdf_bytes: bytes) -> str:
-    """Save PDF to disk and return relative path."""
+    """Save generated PDF and return relative path of the versioned file."""
     pdf_dir = settings.files_dir / "pdf"
     pdf_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"project_{project_id}.pdf"
-    file_path = pdf_dir / filename
-    file_path.write_bytes(pdf_bytes)
-    return f"pdf/{filename}"
+    # Timestamp format: YYYYMMDDTHHMMSSffffffZ (UTC), used by the download validator.
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    versioned_filename = f"project_{project_id}_{timestamp}.pdf"
+    versioned_path = pdf_dir / versioned_filename
+    versioned_path.write_bytes(pdf_bytes)
+
+    latest_filename = f"project_{project_id}.pdf"
+    latest_path = pdf_dir / latest_filename
+    latest_path.write_bytes(pdf_bytes)
+    return f"pdf/{versioned_filename}"
+
+
+def list_project_pdfs(project_id: int) -> list[dict[str, Any]]:
+    """List versioned generated PDFs for a project, newest first."""
+    pdf_dir = settings.files_dir / "pdf"
+    if not pdf_dir.exists():
+        return []
+
+    pattern = f"project_{project_id}_*.pdf"
+    files = sorted(pdf_dir.glob(pattern), key=lambda f: f.stat().st_mtime, reverse=True)
+    items: list[dict[str, Any]] = []
+    for file_path in files:
+        stat = file_path.stat()
+        items.append(
+            {
+                "file_name": file_path.name,
+                "size_bytes": stat.st_size,
+                "created_at": datetime.fromtimestamp(
+                    stat.st_mtime, tz=timezone.utc
+                ).isoformat(),
+            }
+        )
+    return items
 
 
 def generate_export_zip(

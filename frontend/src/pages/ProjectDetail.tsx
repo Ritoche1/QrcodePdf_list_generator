@@ -155,6 +155,14 @@ export function ProjectDetailPage() {
               Generate PDF
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<FileDown className="w-4 h-4" />}
+              onClick={() => navigate(`/projects/${id}/pdfs`)}
+            >
+              PDF History
+            </Button>
+            <Button
               size="sm"
               leftIcon={<Plus className="w-4 h-4" />}
               onClick={() => navigate(`/projects/${id}/generate`)}

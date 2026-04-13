@@ -2,21 +2,35 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Upload, Download, QrCode, FileDown, Wand2, Pencil,
+  Plus, Upload, Download, QrCode, FileDown,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, Modal, ConfirmModal } from '@/components/ui';
-import { Input, Textarea } from '@/components/ui/Input';
+import { Button, Card, Modal, ConfirmModal, Input } from '@/components/ui';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { EntryTable } from '@/components/entries/EntryTable';
 import { EntryFiltersBar } from '@/components/entries/EntryFilters';
 import { BulkActions } from '@/components/entries/BulkActions';
 import { ImportModal } from '@/components/entries/ImportModal';
+import { QrTypeSelector } from '@/components/qr/QrTypeSelector';
+import { QrContentForm } from '@/components/qr/QrContentForm';
 import { useProject, projectKeys } from '@/hooks/useProjects';
-import { useEntries, useDeleteEntry, useBulkStatus, entryKeys } from '@/hooks/useEntries';
+import { useEntries, useDeleteEntry, useBulkStatus, useUpdateEntry, entryKeys } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
 import { importExportApi, downloadBlob } from '@/lib/api';
-import type { EntryFilters } from '@/types';
+import type { EntryFilters, Entry, ContentType, QrContentData } from '@/types';
+
+function createDefaultContent(type: ContentType): QrContentData {
+  switch (type) {
+    case 'url':
+      return { type: 'url', url: 'https://example.com' };
+    case 'text':
+      return { type: 'text', text: 'Sample text' };
+    case 'vcard':
+      return { type: 'vcard', first_name: 'John', last_name: 'Doe' };
+    case 'wifi':
+      return { type: 'wifi', ssid: 'MyWifi', encryption: 'WPA', hidden: false };
+  }
+}
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,12 +52,16 @@ export function ProjectDetailPage() {
   // Modals
   const [importOpen, setImportOpen] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editContentType, setEditContentType] = useState<ContentType>('text');
+  const [editContent, setEditContent] = useState<QrContentData>(createDefaultContent('text'));
 
   const { data: project, isLoading: projectLoading } = useProject(id!);
   const { data: entriesData, isLoading: entriesLoading } = useEntries(id!, filters);
   const { mutateAsync: deleteEntry, isPending: isDeleting } = useDeleteEntry(id!);
   const { mutateAsync: bulkStatus, isPending: isBulkLoading } = useBulkStatus(id!);
+  const { mutateAsync: updateEntry, isPending: isUpdating } = useUpdateEntry(id!);
 
   const entries = entriesData?.items ?? [];
   const total = entriesData?.total ?? 0;
@@ -101,6 +119,31 @@ export function ProjectDetailPage() {
       downloadBlob(blob, `${project.name}.${format}`);
     } catch {
       toast.error('Export failed');
+    }
+  };
+
+  const handleOpenEditEntry = (entry: Entry) => {
+    setEditingEntry(entry);
+    setEditLabel(entry.label ?? '');
+    setEditContentType(entry.content_type);
+    setEditContent(entry.content);
+  };
+
+  const handleSaveEntry = async () => {
+    if (!editingEntry) return;
+    try {
+      await updateEntry({
+        id: editingEntry.id,
+        payload: {
+          label: editLabel.trim() || undefined,
+          content_type: editContentType,
+          content: editContent,
+        },
+      });
+      toast.success('Entry updated');
+      setEditingEntry(null);
+    } catch {
+      toast.error('Failed to update entry');
     }
   };
 
@@ -205,6 +248,7 @@ export function ProjectDetailPage() {
         selectedIds={selectedIds}
         onSelectAll={handleSelectAll}
         onSelectRow={handleSelectRow}
+        onEdit={handleOpenEditEntry}
         onDelete={(entry) => setDeleteEntryId(entry.id)}
       />
 
@@ -245,6 +289,48 @@ export function ProjectDetailPage() {
         confirmLabel="Delete"
         loading={isDeleting}
       />
+
+      <Modal
+        isOpen={!!editingEntry}
+        onClose={() => setEditingEntry(null)}
+        title="Edit entry"
+        description="Update entry details."
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditingEntry(null)} disabled={isUpdating}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEntry} loading={isUpdating}>
+              Save changes
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Label"
+            value={editLabel}
+            onChange={(event) => setEditLabel(event.target.value)}
+            placeholder="Entry label"
+          />
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700">Type</p>
+            <QrTypeSelector
+              value={editContentType}
+              onChange={(type) => {
+                setEditContentType(type);
+                setEditContent(createDefaultContent(type));
+              }}
+            />
+          </div>
+          <QrContentForm
+            contentType={editContentType}
+            value={editContent}
+            onChange={setEditContent}
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

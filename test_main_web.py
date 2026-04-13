@@ -175,6 +175,26 @@ def test_download_pdf_uses_custom_filename_query_param():
             assert "attachment; filename=My_Final_PDF.pdf" in response.headers["Content-Disposition"]
 
 
+def test_download_pdf_uses_default_filename_when_custom_name_blank():
+    app.config["TESTING"] = True
+    with tempfile.TemporaryDirectory() as work_dir:
+        pdf_path = Path(work_dir) / "qr_codes.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4\n")
+        JOBS["download-default-job"] = {
+            "status": "complete",
+            "progress": 1,
+            "total": 1,
+            "error": "",
+            "pdf_path": str(pdf_path),
+            "zip_path": str(Path(work_dir) / "qr_codes.zip"),
+            "completed_at": time.time(),
+        }
+        with app.test_client() as client:
+            response = client.get("/download/download-default-job/pdf?filename=")
+            assert response.status_code == 200
+            assert "attachment; filename=qr_codes.pdf" in response.headers["Content-Disposition"]
+
+
 def test_preview_pdf_serves_inline_pdf():
     app.config["TESTING"] = True
     with tempfile.TemporaryDirectory() as work_dir:

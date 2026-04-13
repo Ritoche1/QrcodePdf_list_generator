@@ -97,7 +97,8 @@ def sanitize_file_name(value, fallback_index):
 
 def sanitize_download_pdf_name(value):
     """Build a safe PDF filename from user input."""
-    base = secure_filename(str(value).strip())
+    raw_value = "" if value is None else str(value).strip()
+    base = secure_filename(raw_value)
     if not base:
         return OUTPUT_PDF
     if not base.lower().endswith(".pdf"):
@@ -113,7 +114,7 @@ def list_generated_pdfs(jobs=None):
     completed_jobs = [
         {
             "job_id": job_id,
-            "filename": f"qr_codes_{job_id[:8]}.pdf",
+            "filename": f"qr_codes_{job_id}.pdf",
             "completed_at": job.get("completed_at"),
         }
         for job_id, job in jobs.items()
@@ -500,6 +501,8 @@ PROGRESS_TEMPLATE = """
     }
     function renderGeneratedPdfList(items) {
       generatedPdfListNode.innerHTML = "";
+      previewContainerNode.style.display = "none";
+      previewFrameNode.src = "";
       if (!items.length) return;
       items.forEach((item, index) => {
         const listItem = document.createElement("li");
@@ -509,9 +512,9 @@ PROGRESS_TEMPLATE = """
         const previewLink = document.createElement("a");
         previewLink.href = `/preview/${item.job_id}/pdf`;
         previewLink.textContent = "Preview";
-        previewLink.target = "_blank";
         previewLink.style.marginRight = "0.5rem";
-        previewLink.addEventListener("click", () => {
+        previewLink.addEventListener("click", (event) => {
+          event.preventDefault();
           previewContainerNode.style.display = "block";
           previewFrameNode.src = `/preview/${item.job_id}/pdf`;
         });

@@ -48,6 +48,7 @@ const defaultPdfLayout: PdfLayoutOptions = {
   show_labels: true,
   font_size: 8,
 };
+const MAX_GENERATED_PDFS = 10;
 
 interface GeneratedPdfItem {
   id: string;
@@ -61,6 +62,10 @@ function normalizePdfFileName(value: string, fallback: string): string {
   const trimmed = value.trim();
   const safe = trimmed === '' ? fallback : trimmed;
   return safe.toLowerCase().endsWith('.pdf') ? safe : `${safe}.pdf`;
+}
+
+function generatePdfId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function StepIndicator({ currentStep }: { currentStep: WizardStep }) {
@@ -126,6 +131,8 @@ export function QrWizardPage() {
   const [generatedPdfs, setGeneratedPdfs] = useState<GeneratedPdfItem[]>([]);
   const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
   const generatedPdfUrlsRef = useRef<string[]>([]);
+  const hasCustomizedPdfNameRef = useRef(false);
+  const lastProjectIdRef = useRef<string | null>(null);
 
   // For design preview
   const [previewContentType, setPreviewContentType] = useState<ContentType>('url');
@@ -171,13 +178,22 @@ export function QrWizardPage() {
       const previewUrl = URL.createObjectURL(blob);
       generatedPdfUrlsRef.current.push(previewUrl);
       const generatedPdf = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: generatePdfId(),
         blob,
         previewUrl,
         fileName: generatedName,
         createdAt: new Date().toISOString(),
       };
-      setGeneratedPdfs((prev) => [generatedPdf, ...prev]);
+      setGeneratedPdfs((prev) => {
+        const next = [generatedPdf, ...prev];
+        if (next.length <= MAX_GENERATED_PDFS) return next;
+        const removed = next.slice(MAX_GENERATED_PDFS);
+        removed.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+        generatedPdfUrlsRef.current = generatedPdfUrlsRef.current.filter(
+          (url) => !removed.some((item) => item.previewUrl === url)
+        );
+        return next.slice(0, MAX_GENERATED_PDFS);
+      });
       setActivePreviewId(generatedPdf.id);
       toast.success('PDF generated. Preview and download it below.');
     } catch {
@@ -196,9 +212,14 @@ export function QrWizardPage() {
     generatedPdfs.find((item) => item.id === activePreviewId) ?? generatedPdfs[0] ?? null;
 
   useEffect(() => {
-    if (customPdfName.trim() !== '') return;
-    setCustomPdfName(defaultPdfName);
-  }, [customPdfName, defaultPdfName]);
+    if (!project) return;
+    if (lastProjectIdRef.current !== project.id) {
+      lastProjectIdRef.current = project.id;
+      hasCustomizedPdfNameRef.current = false;
+    }
+    if (hasCustomizedPdfNameRef.current) return;
+    setCustomPdfName(`${project.name}-qr.pdf`);
+  }, [project]);
 
   useEffect(() => () => {
     generatedPdfUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -353,7 +374,10 @@ export function QrWizardPage() {
                 <Input
                   label="PDF filename"
                   value={customPdfName}
-                  onChange={(event) => setCustomPdfName(event.target.value)}
+                  onChange={(event) => {
+                    hasCustomizedPdfNameRef.current = true;
+                    setCustomPdfName(event.target.value);
+                  }}
                   placeholder={defaultPdfName}
                   hint="Used as the default name when generating and downloading PDFs."
                 />
@@ -441,7 +465,7 @@ export function QrWizardPage() {
                       <iframe
                         title="Generated PDF preview"
                         src={activePdfPreview.previewUrl}
-                        className="w-full h-80 rounded border-0 bg-white"
+                        className="w-full h-72 rounded border-0 bg-white"
                       />
                     ) : (
                       <div className="h-full flex items-center justify-center text-sm text-gray-500">

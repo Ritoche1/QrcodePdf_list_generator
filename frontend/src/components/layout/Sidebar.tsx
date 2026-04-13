@@ -25,9 +25,20 @@ const navItems: NavItem[] = [
   { label: 'Documentation', to: '/docs', icon: BookOpen },
 ];
 
+const MD_BREAKPOINT_PX = 768;
+
 export function Sidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(`(min-width: ${MD_BREAKPOINT_PX}px)`);
+    const updateDesktop = () => setIsDesktop(mediaQuery.matches);
+    updateDesktop();
+    mediaQuery.addEventListener('change', updateDesktop);
+    return () => mediaQuery.removeEventListener('change', updateDesktop);
+  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -46,11 +57,11 @@ export function Sidebar() {
       </button>
 
       {mobileOpen && (
-        <button
-          type="button"
+        <div
           className="md:hidden fixed inset-0 bg-black/30 z-30"
           onClick={() => setMobileOpen(false)}
-          aria-label="Close navigation overlay"
+          aria-hidden="true"
+          role="presentation"
         />
       )}
 
@@ -59,6 +70,8 @@ export function Sidebar() {
           'fixed md:sticky top-0 left-0 z-40 h-screen w-60 bg-white border-r border-gray-200 flex flex-col transition-transform duration-200',
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
+        role="navigation"
+        aria-hidden={isDesktop ? false : !mobileOpen}
       >
         {/* Brand */}
         <div className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-100">

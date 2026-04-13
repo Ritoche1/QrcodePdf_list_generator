@@ -1,6 +1,6 @@
 # QR Code PDF List Generator
 
-Generate a printable PDF sheet of QR codes from a CSV file.
+Generate printable QR codes from CSV/Excel input, as a PDF sheet or ZIP package.
 
 ## Project objective
 
@@ -9,9 +9,13 @@ This project reads a CSV containing names and URLs, generates one QR image per r
 ## Features
 
 - CSV-driven QR code generation
+- CSV/XLSX upload web UI for bulk generation
+- Column mapping UI (select URL and label columns)
+- Background processing with live progress updates
 - Automatic image output into `image/` directory
 - PDF layout in a 4x4 grid per page
-- Input validation for required CSV columns
+- ZIP export containing all generated PNG QR codes and PDF
+- Input validation for required data
 
 ## Setup
 
@@ -28,7 +32,7 @@ cd QrcodePdf_list_generator
 pip install -r requirement.txt
 ```
 
-## Input format
+## Input format (CLI mode)
 
 Place `data.csv` in the project root. It must contain:
 
@@ -45,6 +49,8 @@ Python,https://www.python.org
 
 ## Usage
 
+### CLI mode
+
 Run:
 
 ```sh
@@ -55,6 +61,22 @@ Outputs:
 
 - `image/<name>.png` files for each row in CSV
 - `qr_codes.pdf` containing all generated QR codes
+
+### Web mode (bulk CSV/XLSX upload)
+
+Run:
+
+```sh
+python3 main.py --web
+```
+
+Then open `http://127.0.0.1:5000` and:
+
+1. Upload a `.csv` or `.xlsx` file
+2. Map columns (URL + label)
+3. Start generation (runs in a background thread)
+4. Monitor progress
+5. Download PDF and/or ZIP
 
 ## Sample output PDF
 

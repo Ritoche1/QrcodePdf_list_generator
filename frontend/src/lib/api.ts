@@ -156,12 +156,14 @@ function mapEntryContentFromBackend(
 }
 
 function mapEntryWritePayload(payload: CreateEntry | UpdateEntry): Record<string, unknown> {
-  const request: Record<string, unknown> = { ...payload };
-  if (payload.content) {
-    request.content_data = mapEntryContentToBackend(payload.content);
-    delete request.content;
+  const { content, ...rest } = payload;
+  if (content) {
+    return {
+      ...rest,
+      content_data: mapEntryContentToBackend(content),
+    };
   }
-  return request;
+  return rest;
 }
 
 function normalizeEntry(payload: Partial<Entry> & { id?: string | number }): Entry {

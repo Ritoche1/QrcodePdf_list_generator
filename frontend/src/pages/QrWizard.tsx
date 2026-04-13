@@ -78,8 +78,6 @@ function createDefaultContent(type: ContentType): QrContentData {
       return { type: 'vcard', first_name: 'John', last_name: 'Doe' };
     case 'wifi':
       return { type: 'wifi', ssid: 'MyWifi', encryption: 'WPA', hidden: false };
-    default:
-      return { type: 'text', text: 'Sample text' };
   }
 }
 

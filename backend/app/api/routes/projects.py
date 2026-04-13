@@ -1,0 +1,151 @@
+"""Project CRUD routes."""
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_session
+from app.models.entry import Entry, EntryStatus
+from app.models.project import Project
+from app.schemas.project import (
+    ProjectCreate,
+    ProjectList,
+    ProjectResponse,
+    ProjectUpdate,
+    ProjectWithCount,
+)
+
+router = APIRouter(prefix="/projects", tags=["projects"])
+
+
+@router.get("", response_model=ProjectList)
+async def list_projects(
+    session: AsyncSession = Depends(get_session),
+) -> ProjectList:
+    """List all projects with entry counts."""
+    result = await session.execute(select(Project).order_by(Project.created_at.desc()))
+    projects = result.scalars().all()
+
+    items = []
+    for p in projects:
+        items.append(
+            ProjectResponse(
+                id=p.id,
+                name=p.name,
+                description=p.description,
+                created_at=p.created_at,
+                updated_at=p.updated_at,
+            )
+        )
+
+    return ProjectList(items=items, total=len(items))
+
+
+@router.post("", response_model=ProjectWithCount, status_code=status.HTTP_201_CREATED)
+async def create_project(
+    payload: ProjectCreate,
+    session: AsyncSession = Depends(get_session),
+) -> ProjectWithCount:
+    """Create a new project."""
+    project = Project(name=payload.name, description=payload.description)
+    session.add(project)
+    await session.flush()
+    await session.refresh(project)
+
+    return ProjectWithCount(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        entry_count=0,
+        generated_count=0,
+        printed_count=0,
+    )
+
+
+@router.get("/{project_id}", response_model=ProjectWithCount)
+async def get_project(
+    project_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> ProjectWithCount:
+    """Get a project with entry count statistics."""
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Count entries by status
+    total_result = await session.execute(
+        select(func.count()).where(Entry.project_id == project_id)
+    )
+    entry_count = total_result.scalar_one()
+
+    generated_result = await session.execute(
+        select(func.count()).where(
+            Entry.project_id == project_id,
+            Entry.status == EntryStatus.generated,
+        )
+    )
+    generated_count = generated_result.scalar_one()
+
+    printed_result = await session.execute(
+        select(func.count()).where(
+            Entry.project_id == project_id,
+            Entry.status == EntryStatus.printed,
+        )
+    )
+    printed_count = printed_result.scalar_one()
+
+    return ProjectWithCount(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        entry_count=entry_count,
+        generated_count=generated_count,
+        printed_count=printed_count,
+    )
+
+
+@router.put("/{project_id}", response_model=ProjectResponse)
+async def update_project(
+    project_id: int,
+    payload: ProjectUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> ProjectResponse:
+    """Update a project's name or description."""
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if payload.name is not None:
+        project.name = payload.name
+    if payload.description is not None:
+        project.description = payload.description
+
+    await session.flush()
+    await session.refresh(project)
+
+    return ProjectResponse(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+    )
+
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project(
+    project_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """Delete a project and all its entries."""
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    await session.delete(project)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

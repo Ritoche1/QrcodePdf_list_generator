@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 import os
+import pandas as pd
 import shutil
 import tempfile
 import threading
@@ -10,7 +12,7 @@ import uuid
 import zipfile
 
 import qrcode
-from flask import Flask, jsonify, redirect, render_template_string, request, send_file, url_for
+from flask import Flask, jsonify, redirect, render_template_string, request, send_file, session, url_for
 from fpdf import FPDF
 from werkzeug.utils import secure_filename
 
@@ -31,7 +33,10 @@ UPLOADS = {}
 JOBS = {}
 UPLOADS_LOCK = threading.Lock()
 JOBS_LOCK = threading.Lock()
+
+
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32)
 
 
 def create_qr_code(name, url, image_dir=IMAGE_DIR):
@@ -50,7 +55,10 @@ def create_qr_code(name, url, image_dir=IMAGE_DIR):
 
 def validate_data(data):
     """Validate required columns before generating files."""
-    header_columns = set(data[0].keys()) if data else set()
+    if isinstance(data, pd.DataFrame):
+        header_columns = set(data.columns)
+    else:
+        header_columns = set(data[0].keys()) if data else set()
     missing_columns = REQUIRED_COLUMNS - header_columns
     if missing_columns:
         missing = ", ".join(sorted(missing_columns))
@@ -186,6 +194,33 @@ def cleanup_stale_resources():
             del JOBS[job_id]
 
 
+def get_session_entries():
+    """Get normalized entries from session storage."""
+    stored_entries = session.get("entries", [])
+    if not isinstance(stored_entries, list):
+        return []
+
+    normalized = []
+    for row in stored_entries:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name", "")).strip()
+        url = str(row.get("url", "")).strip()
+        if name and url:
+            normalized.append({"name": name, "url": url})
+    return normalized
+
+
+def set_session_entries(entries):
+    """Persist normalized entries to session storage."""
+    session["entries"] = [
+        {"name": str(row["name"]).strip(), "url": str(row["url"]).strip()}
+        for row in entries
+        if str(row.get("name", "")).strip() and str(row.get("url", "")).strip()
+    ]
+    session.modified = True
+
+
 def process_background_job(job_id, file_path, label_column, url_column):
     """Generate QR assets in a background thread."""
     working_directory = None
@@ -225,18 +260,111 @@ def process_background_job(job_id, file_path, label_column, url_column):
         shutil.rmtree(upload_dir, ignore_errors=True)
 
 
+def process_entries_job(job_id, entries):
+    """Generate QR assets from prepared entry rows."""
+    working_directory = None
+    try:
+        mapped = pd.DataFrame(entries)
+        working_directory = tempfile.mkdtemp(prefix=f"qr_job_{job_id}_")
+        image_dir = os.path.join(working_directory, "image")
+        pdf_path = os.path.join(working_directory, OUTPUT_PDF)
+        zip_path = os.path.join(working_directory, "qr_codes.zip")
+
+        def progress_callback(done, total):
+            with JOBS_LOCK:
+                JOBS[job_id]["progress"] = done
+                JOBS[job_id]["total"] = total
+
+        generated = generate_qr_codes(mapped, image_dir=image_dir, progress_callback=progress_callback)
+        generate_pdf_file(generated, image_dir=image_dir, output_pdf=pdf_path)
+        create_zip_archive(image_dir=image_dir, pdf_path=pdf_path, zip_path=zip_path)
+
+        with JOBS_LOCK:
+            JOBS[job_id]["status"] = "complete"
+            JOBS[job_id]["progress"] = JOBS[job_id]["total"]
+            JOBS[job_id]["pdf_path"] = pdf_path
+            JOBS[job_id]["zip_path"] = zip_path
+            JOBS[job_id]["working_directory"] = working_directory
+            JOBS[job_id]["completed_at"] = time.time()
+    except Exception as error:
+        with JOBS_LOCK:
+            JOBS[job_id]["status"] = "error"
+            JOBS[job_id]["error"] = str(error)
+            JOBS[job_id]["completed_at"] = time.time()
+        if working_directory:
+            shutil.rmtree(working_directory, ignore_errors=True)
+
+
 UPLOAD_TEMPLATE = """
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>Bulk QR Generator</title></head>
 <body>
   <h1>Bulk QR generation</h1>
+  <p><a href="/entries">Manage entries manually</a></p>
   {% if error %}<p style="color: red;">{{ error }}</p>{% endif %}
   <form action="/upload" method="post" enctype="multipart/form-data">
     <label for="file">Upload CSV or XLSX:</label>
     <input id="file" type="file" name="file" accept=".csv,.xlsx" required>
     <button type="submit">Upload</button>
   </form>
+</body>
+</html>
+"""
+
+ENTRIES_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Entry List</title></head>
+<body>
+  <h1>Entry list</h1>
+  <p><a href="/">Import additional CSV/XLSX file</a></p>
+  {% if error %}<p style="color: red;">{{ error }}</p>{% endif %}
+  {% if message %}<p style="color: green;">{{ message }}</p>{% endif %}
+
+  <h2>Add entry manually</h2>
+  <form action="/entries/add" method="post">
+    <label for="name">Name</label>
+    <input id="name" name="name" type="text" required>
+    <label for="url">URL</label>
+    <input id="url" name="url" type="url" required>
+    <button type="submit">Add entry</button>
+  </form>
+
+  <h2>Current entries ({{ entries|length }})</h2>
+  {% if entries %}
+  <form action="/entries/update" method="post">
+    <input type="hidden" name="count" value="{{ entries|length }}">
+    <table border="1" cellpadding="6" cellspacing="0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>URL</th>
+          <th>Delete</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in entries %}
+        <tr>
+          <td><input type="text" name="name_{{ loop.index0 }}" value="{{ entry.name }}" required></td>
+          <td><input type="url" name="url_{{ loop.index0 }}" value="{{ entry.url }}" required></td>
+          <td><input type="checkbox" name="delete_{{ loop.index0 }}"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <button type="submit">Save edits</button>
+  </form>
+  {% endif %}
+
+  <p>
+    <form action="/entries/generate" method="post" style="display:inline;">
+      <button type="submit" {% if not entries %}disabled{% endif %}>Generate QR codes and PDF</button>
+    </form>
+    <form action="/entries/clear" method="post" style="display:inline;">
+      <button type="submit" {% if not entries %}disabled{% endif %}>Clear list</button>
+    </form>
+  </p>
 </body>
 </html>
 """
@@ -355,7 +483,7 @@ def upload():
 
 @app.route("/start-job", methods=["POST"])
 def start_job():
-    """Start background generation job."""
+    """Import mapped CSV/XLSX rows into the editable entry list."""
     cleanup_stale_resources()
     upload_id = request.form.get("upload_id")
     url_column = request.form.get("url_column", "")
@@ -364,6 +492,84 @@ def start_job():
         upload_info = UPLOADS.pop(upload_id or "", None)
     if upload_info is None:
         return redirect(url_for("index", error="Upload session expired. Please upload again."))
+    try:
+        data = load_data_from_file(upload_info["file_path"])
+        mapped = normalize_mapped_data(data, label_column=label_column, url_column=url_column)
+        imported_entries = mapped.to_dict(orient="records")
+        current_entries = get_session_entries()
+        current_entries.extend(imported_entries)
+        set_session_entries(current_entries)
+        return redirect(url_for("entries_page", message=f"Imported {len(imported_entries)} entries."))
+    except Exception as error:
+        return redirect(url_for("entries_page", error=f"Failed to import entries: {error}"))
+    finally:
+        shutil.rmtree(upload_info["upload_dir"], ignore_errors=True)
+
+
+@app.route("/entries")
+def entries_page():
+    """Show and manage current entry list."""
+    cleanup_stale_resources()
+    return render_template_string(
+        ENTRIES_TEMPLATE,
+        entries=get_session_entries(),
+        error=request.args.get("error"),
+        message=request.args.get("message"),
+    )
+
+
+@app.route("/entries/add", methods=["POST"])
+def add_entry():
+    """Add one manual entry to the current list."""
+    name = request.form.get("name", "").strip()
+    url = request.form.get("url", "").strip()
+    if not name or not url:
+        return redirect(url_for("entries_page", error="Name and URL are required."))
+    current_entries = get_session_entries()
+    current_entries.append({"name": name, "url": url})
+    set_session_entries(current_entries)
+    return redirect(url_for("entries_page", message="Entry added."))
+
+
+@app.route("/entries/update", methods=["POST"])
+def update_entries():
+    """Edit and delete entries from the current list."""
+    try:
+        count = int(request.form.get("count", "0"))
+    except ValueError:
+        count = 0
+
+    updated_entries = []
+    for index in range(count):
+        if request.form.get(f"delete_{index}"):
+            continue
+        name = request.form.get(f"name_{index}", "").strip()
+        url = request.form.get(f"url_{index}", "").strip()
+        if not name or not url:
+            return redirect(url_for("entries_page", error="Each entry must include both name and URL."))
+        updated_entries.append({"name": name, "url": url})
+
+    set_session_entries(updated_entries)
+    return redirect(url_for("entries_page", message="Entry list updated."))
+
+
+@app.route("/entries/clear", methods=["POST"])
+def clear_entries():
+    """Clear all current entries."""
+    set_session_entries([])
+    return redirect(url_for("entries_page", message="Entry list cleared."))
+
+
+@app.route("/entries/generate", methods=["POST"])
+def generate_entries():
+    """Generate assets from current mixed entry list."""
+    current_entries = get_session_entries()
+    if not current_entries:
+        return redirect(url_for("entries_page", error="Add at least one entry before generating."))
+    try:
+        validate_data(current_entries)
+    except ValueError as error:
+        return redirect(url_for("entries_page", error=str(error)))
 
     job_id = uuid.uuid4().hex
     with JOBS_LOCK:
@@ -377,8 +583,8 @@ def start_job():
         }
 
     thread = threading.Thread(
-        target=process_background_job,
-        args=(job_id, upload_info["file_path"], label_column, url_column),
+        target=process_entries_job,
+        args=(job_id, list(current_entries)),
         daemon=True,
     )
     thread.start()

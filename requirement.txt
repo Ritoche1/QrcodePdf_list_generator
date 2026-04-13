@@ -2,3 +2,4 @@ pillow
 qrcode
 fpdf
 pandas
+streamlit

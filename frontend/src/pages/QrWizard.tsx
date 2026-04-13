@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, Input } from '@/components/ui';
+import { Button, Card, ConfirmModal, Input } from '@/components/ui';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { QrTypeSelector } from '@/components/qr/QrTypeSelector';
 import { QrContentForm } from '@/components/qr/QrContentForm';
@@ -13,11 +13,14 @@ import { PdfLayoutOptionsForm } from '@/components/pdf/PdfLayoutOptions';
 import { PdfPreview } from '@/components/pdf/PdfPreview';
 import { EntryFiltersBar } from '@/components/entries/EntryFilters';
 import { EntryTable } from '@/components/entries/EntryTable';
+import { EntryEditorModal } from '@/components/entries/EntryEditorModal';
 import { useProject } from '@/hooks/useProjects';
-import { useEntries } from '@/hooks/useEntries';
+import { useEntries, useCreateEntry, useDeleteEntry, useUpdateEntry } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
 import { pdfApi, downloadBlob } from '@/lib/api';
-import type { ContentType, QrContentData, QrDesignOptions, PdfLayoutOptions, EntryFilters } from '@/types';
+import type {
+  ContentType, CreateEntry, Entry, EntryFilters, PdfLayoutOptions, QrContentData, QrDesignOptions, UpdateEntry,
+} from '@/types';
 
 type WizardStep = 'select' | 'design' | 'layout' | 'download';
 
@@ -130,6 +133,9 @@ export function QrWizardPage() {
   const [customPdfName, setCustomPdfName] = useState('');
   const [generatedPdfs, setGeneratedPdfs] = useState<GeneratedPdfItem[]>([]);
   const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
+  const [isEntryEditorOpen, setIsEntryEditorOpen] = useState(false);
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const generatedPdfUrlsRef = useRef<string[]>([]);
   const hasCustomizedPdfNameRef = useRef(false);
   const lastProjectIdRef = useRef<string | null>(null);
@@ -140,9 +146,13 @@ export function QrWizardPage() {
 
   const { data: project, isLoading: projectLoading } = useProject(id!);
   const { data: entriesData, isLoading: entriesLoading } = useEntries(id!, filters);
+  const { mutateAsync: createEntry, isPending: isCreatingEntry } = useCreateEntry(id!);
+  const { mutateAsync: updateEntry, isPending: isUpdatingEntry } = useUpdateEntry(id!);
+  const { mutateAsync: deleteEntry, isPending: isDeletingEntry } = useDeleteEntry(id!);
 
   const entries = entriesData?.items ?? [];
   const total = entriesData?.total ?? 0;
+  const isSavingEntry = isCreatingEntry || isUpdatingEntry;
 
   const layoutWithEntries = useMemo(
     () => ({
@@ -211,6 +221,38 @@ export function QrWizardPage() {
   const activePdfPreview =
     generatedPdfs.find((item) => item.id === activePreviewId) ?? generatedPdfs[0] ?? null;
 
+  const handleSaveEntry = async (payload: CreateEntry | UpdateEntry) => {
+    try {
+      if (editingEntry) {
+        await updateEntry({ id: editingEntry.id, payload });
+        toast.success('Entry updated');
+      } else {
+        await createEntry(payload as CreateEntry);
+        toast.success('Entry added');
+      }
+      setIsEntryEditorOpen(false);
+      setEditingEntry(null);
+    } catch {
+      toast.error(editingEntry ? 'Failed to update entry' : 'Failed to add entry');
+    }
+  };
+
+  const handleDeleteEntry = async () => {
+    if (!deleteEntryId) return;
+    try {
+      await deleteEntry(deleteEntryId);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteEntryId);
+        return next;
+      });
+      toast.success('Entry deleted');
+      setDeleteEntryId(null);
+    } catch {
+      toast.error('Failed to delete entry');
+    }
+  };
+
   useEffect(() => {
     if (!project) return;
     if (lastProjectIdRef.current !== project.id) {
@@ -255,15 +297,28 @@ export function QrWizardPage() {
                   ? 'Select entries to include, or leave none to include all.'
                   : `${selectedIds.size} ${selectedIds.size === 1 ? 'entry' : 'entries'} selected`}
               </p>
-              {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={() => setSelectedIds(new Set())}
+                  leftIcon={<Plus className="w-4 h-4" />}
+                  onClick={() => {
+                    setEditingEntry(null);
+                    setIsEntryEditorOpen(true);
+                  }}
                 >
-                  Clear selection
+                  Add entry
                 </Button>
-              )}
+                {selectedIds.size > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    Clear selection
+                  </Button>
+                )}
+              </div>
             </div>
             <EntryFiltersBar filters={filters} onChange={setFilters} />
           </Card>
@@ -275,17 +330,22 @@ export function QrWizardPage() {
             onFiltersChange={setFilters}
             selectedIds={selectedIds}
             onSelectAll={handleSelectAll}
-            onSelectRow={(entryId) => {
-              setSelectedIds((prev) => {
-                const next = new Set(prev);
-                if (next.has(entryId)) next.delete(entryId);
-                else next.add(entryId);
-                return next;
-              });
-            }}
-          />
-        </div>
-      )}
+              onSelectRow={(entryId) => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(entryId)) next.delete(entryId);
+                  else next.add(entryId);
+                  return next;
+                });
+              }}
+              onEdit={(entry) => {
+                setEditingEntry(entry);
+                setIsEntryEditorOpen(true);
+              }}
+              onDelete={(entry) => setDeleteEntryId(entry.id)}
+            />
+          </div>
+        )}
 
       {/* ─── Step: Design QR ─────────────────────────────────────────────── */}
       {step === 'design' && (
@@ -505,6 +565,29 @@ export function QrWizardPage() {
           </Button>
         )}
       </div>
+
+      <EntryEditorModal
+        isOpen={isEntryEditorOpen}
+        mode={editingEntry ? 'edit' : 'create'}
+        initialEntry={editingEntry}
+        loading={isSavingEntry}
+        onClose={() => {
+          if (isSavingEntry) return;
+          setIsEntryEditorOpen(false);
+          setEditingEntry(null);
+        }}
+        onSubmit={handleSaveEntry}
+      />
+
+      <ConfirmModal
+        isOpen={!!deleteEntryId}
+        onClose={() => setDeleteEntryId(null)}
+        onConfirm={handleDeleteEntry}
+        title="Delete entry"
+        message="This entry will be permanently deleted."
+        confirmLabel="Delete"
+        loading={isDeletingEntry}
+      />
     </div>
   );
 }

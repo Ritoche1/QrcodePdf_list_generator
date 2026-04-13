@@ -90,23 +90,89 @@ interface BackendPdfRequest {
   entry_ids?: number[];
 }
 
+function normalizeEntryContent(
+  contentType: Entry['content_type'],
+  content: unknown
+): Entry['content'] {
+  const raw = content && typeof content === 'object'
+    ? { ...(content as Record<string, unknown>) }
+    : {};
+
+  if (contentType === 'wifi') {
+    const security = typeof raw.security === 'string' ? raw.security : undefined;
+    const encryption = typeof raw.encryption === 'string'
+      ? raw.encryption
+      : security === 'nopass'
+      ? 'None'
+      : security ?? 'WPA';
+    return {
+      type: 'wifi',
+      ssid: typeof raw.ssid === 'string' ? raw.ssid : '',
+      password: typeof raw.password === 'string' ? raw.password : '',
+      encryption: encryption === 'None' || encryption === 'WEP' ? encryption : 'WPA',
+      hidden: Boolean(raw.hidden),
+    };
+  }
+
+  if (contentType === 'url') {
+    return {
+      type: 'url',
+      url: typeof raw.url === 'string' ? raw.url : '',
+    };
+  }
+
+  if (contentType === 'vcard') {
+    return {
+      type: 'vcard',
+      first_name: typeof raw.first_name === 'string' ? raw.first_name : '',
+      last_name: typeof raw.last_name === 'string' ? raw.last_name : '',
+      phone: typeof raw.phone === 'string' ? raw.phone : undefined,
+      email: typeof raw.email === 'string' ? raw.email : undefined,
+      organization: typeof raw.organization === 'string' ? raw.organization : undefined,
+      title: typeof raw.title === 'string' ? raw.title : undefined,
+      address: typeof raw.address === 'string' ? raw.address : undefined,
+    };
+  }
+
+  return {
+    type: 'text',
+    text: typeof raw.text === 'string' ? raw.text : '',
+  };
+}
+
 function normalizeEntry(payload: Partial<Entry> & { id?: string | number }): Entry {
-  const content =
+  const rawContent =
     (payload as Partial<Entry> & { content_data?: Entry['content'] }).content ??
     (payload as Partial<Entry> & { content_data?: Entry['content'] }).content_data;
+  const contentType = payload.content_type ?? 'text';
 
   return {
     id: String(payload.id ?? ''),
     project_id: String(payload.project_id ?? ''),
     label: payload.label ?? undefined,
-    content_type: payload.content_type ?? 'text',
-    content: (content ?? { type: 'text', text: '' }) as Entry['content'],
+    content_type: contentType,
+    content: normalizeEntryContent(contentType, rawContent),
     status: payload.status ?? 'draft',
     tags: Array.isArray(payload.tags) ? payload.tags : [],
     qr_generated: payload.qr_generated ?? Boolean(payload.qr_image_url),
     qr_image_url: payload.qr_image_url ?? undefined,
     created_at: payload.created_at ?? new Date(0).toISOString(),
     updated_at: payload.updated_at ?? payload.created_at ?? new Date(0).toISOString(),
+  };
+}
+
+function mapEntryPayloadContent(content: QrPreviewRequest['content']): Record<string, unknown> {
+  const { type, ...contentData } = content as QrPreviewRequest['content'] & {
+    security?: string;
+    encryption?: string;
+  };
+  if (type !== 'wifi') {
+    return contentData;
+  }
+  const encryption = 'encryption' in contentData ? contentData.encryption : 'WPA';
+  return {
+    ...contentData,
+    security: encryption === 'None' ? 'nopass' : encryption,
   };
 }
 
@@ -244,9 +310,13 @@ export const entriesApi = {
   },
 
   create: async (projectId: string, payload: CreateEntry): Promise<Entry> => {
+    const { content, ...rest } = payload;
     const { data } = await apiClient.post<Entry>(
       `/projects/${projectId}/entries`,
-      payload
+      {
+        ...rest,
+        content_data: mapEntryPayloadContent(content),
+      }
     );
     return normalizeEntry(data);
   },
@@ -255,15 +325,24 @@ export const entriesApi = {
     projectId: string,
     entries: CreateEntry[]
   ): Promise<Entry[]> => {
+    const request = entries.map(({ content, ...rest }) => ({
+      ...rest,
+      content_data: mapEntryPayloadContent(content),
+    }));
     const { data } = await apiClient.post<Entry[]>(
       `/projects/${projectId}/entries/bulk`,
-      { entries }
+      request
     );
     return data.map((entry) => normalizeEntry(entry));
   },
 
   update: async (id: string, payload: UpdateEntry): Promise<Entry> => {
-    const { data } = await apiClient.put<Entry>(`/entries/${id}`, payload);
+    const request: Record<string, unknown> = { ...payload };
+    if (payload.content) {
+      request.content_data = mapEntryPayloadContent(payload.content);
+      delete request.content;
+    }
+    const { data } = await apiClient.put<Entry>(`/entries/${id}`, request);
     return normalizeEntry(data);
   },
 

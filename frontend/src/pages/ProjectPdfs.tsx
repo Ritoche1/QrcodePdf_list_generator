@@ -6,10 +6,8 @@ import { Button, Card, EmptyState } from '@/components/ui';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { useProject } from '@/hooks/useProjects';
 import { useProjectPdfs } from '@/hooks/usePdfs';
-import { downloadBlob, pdfApi } from '@/lib/api';
+import { API_BASE_URL, downloadBlob, pdfApi } from '@/lib/api';
 import { useToastContext } from '@/components/ui/Toast';
-
-const API_BASE = (import.meta.env.VITE_API_URL as string) || '/api/v1';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -36,7 +34,7 @@ export function ProjectPdfsPage() {
 
   const previewUrl = useMemo(() => {
     if (!id || !activeFileName) return null;
-    return `${API_BASE}/projects/${id}/pdfs/download?file_name=${encodeURIComponent(activeFileName)}`;
+    return `${API_BASE_URL}/projects/${id}/pdfs/download?file_name=${encodeURIComponent(activeFileName)}`;
   }, [id, activeFileName]);
 
   const handleDownload = async (fileName: string) => {

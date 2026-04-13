@@ -124,7 +124,12 @@ async def download_project_pdf(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if not re.fullmatch(rf"project_{project_id}_[0-9T]+Z\.pdf", file_name):
+    expected_prefix = f"project_{project_id}_"
+    if not file_name.startswith(expected_prefix) or not file_name.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Invalid PDF file name")
+
+    timestamp_part = file_name[len(expected_prefix):-4]
+    if not re.fullmatch(r"\d{8}T\d{12}Z", timestamp_part):
         raise HTTPException(status_code=400, detail="Invalid PDF file name")
 
     pdf_path = (settings.files_dir / "pdf" / file_name).resolve()

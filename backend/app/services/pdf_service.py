@@ -194,6 +194,7 @@ def save_pdf(project_id: int, pdf_bytes: bytes) -> str:
     """Save generated PDF and return relative path of the versioned file."""
     pdf_dir = settings.files_dir / "pdf"
     pdf_dir.mkdir(parents=True, exist_ok=True)
+    # Timestamp format: YYYYMMDDTHHMMSSffffffZ (UTC), used by the download validator.
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     versioned_filename = f"project_{project_id}_{timestamp}.pdf"
     versioned_path = pdf_dir / versioned_filename

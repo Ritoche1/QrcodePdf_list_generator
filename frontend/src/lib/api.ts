@@ -16,7 +16,7 @@ import type {
   ProjectPdfFile,
 } from '@/types';
 
-const BASE_URL = (import.meta.env.VITE_API_URL as string) || '/api/v1';
+export const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || '/api/v1';
 
 function formatApiErrorMessage(payload: unknown, fallback: string): string {
   if (typeof payload === 'string') return payload;
@@ -172,7 +172,7 @@ function normalizeProject(payload: Partial<Project> & { id?: string | number }):
 }
 
 export const apiClient = axios.create({
-  baseURL: BASE_URL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },

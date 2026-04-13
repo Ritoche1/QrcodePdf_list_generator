@@ -160,7 +160,7 @@ export function ProjectDetailPage() {
               leftIcon={<FileDown className="w-4 h-4" />}
               onClick={() => navigate(`/projects/${id}/pdfs`)}
             >
-              View PDFs
+              PDF History
             </Button>
             <Button
               size="sm"

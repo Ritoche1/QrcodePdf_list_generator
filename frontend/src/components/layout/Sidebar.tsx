@@ -16,13 +16,30 @@ interface NavItem {
   to: string;
   icon: React.FC<{ className?: string }>;
   exact?: boolean;
+  children?: Array<{
+    label: string;
+    to: string;
+  }>;
 }
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard, exact: true },
   { label: 'Projects', to: '/projects', icon: FolderOpen },
   { label: 'Create QR', to: '/qr/create', icon: QrCode },
-  { label: 'Documentation', to: '/docs', icon: BookOpen },
+  {
+    label: 'Documentation',
+    to: '/docs',
+    icon: BookOpen,
+    children: [
+      { label: 'Introduction', to: '/docs#introduction' },
+      { label: 'Getting Started', to: '/docs#getting-started' },
+      { label: 'Projects Guide', to: '/docs#projects-guide' },
+      { label: 'Entries Guide', to: '/docs#entries-guide' },
+      { label: 'CSV Import Guide', to: '/docs#csv-import-guide' },
+      { label: 'PDF Export Guide', to: '/docs#pdf-export-guide' },
+      { label: 'Troubleshooting', to: '/docs#troubleshooting' },
+    ],
+  },
 ];
 
 const MD_BREAKPOINT_PX = 768;
@@ -88,6 +105,7 @@ export function Sidebar() {
               const isActive = item.exact
                 ? location.pathname === item.to
                 : location.pathname.startsWith(item.to);
+              const activeWithHash = `${location.pathname}${location.hash}`;
               return (
                 <li key={item.to}>
                   <NavLink
@@ -100,7 +118,7 @@ export function Sidebar() {
                         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                     )}
                   >
-                    <item.icon
+                      <item.icon
                       className={clsx(
                         'w-4 h-4 flex-shrink-0',
                         isActive ? 'text-indigo-500' : 'text-gray-400'
@@ -111,6 +129,28 @@ export function Sidebar() {
                       <ChevronRight className="ml-auto w-3.5 h-3.5 text-indigo-400" />
                     )}
                   </NavLink>
+                  {item.children && location.pathname.startsWith(item.to) && (
+                    <ul className="mt-1 ml-7 space-y-0.5">
+                      {item.children.map((child) => {
+                        const isChildActive = activeWithHash === child.to;
+                        return (
+                          <li key={child.to}>
+                            <NavLink
+                              to={child.to}
+                              className={clsx(
+                                'block px-3 py-1.5 rounded-md text-xs transition-colors',
+                                isChildActive
+                                  ? 'bg-indigo-50 text-indigo-700 font-medium'
+                                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
+                              )}
+                            >
+                              {child.label}
+                            </NavLink>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </li>
               );
             })}

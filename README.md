@@ -1,6 +1,6 @@
 # QR Code PDF List Generator
 
-Generate a printable PDF sheet of QR codes from a CSV file.
+Generate a printable PDF sheet of QR codes from a CSV file or manual website entry.
 
 ## Project objective
 
@@ -9,6 +9,8 @@ This project reads a CSV containing names and URLs, generates one QR image per r
 ## Features
 
 - CSV-driven QR code generation
+- Manual entry form in the website UI
+- Editable/deletable entry list before generation
 - Automatic image output into `image/` directory
 - PDF layout in a 4x4 grid per page
 - Input validation for required CSV columns
@@ -55,6 +57,22 @@ Outputs:
 
 - `image/<name>.png` files for each row in CSV
 - `qr_codes.pdf` containing all generated QR codes
+
+## Website usage
+
+Run:
+
+```sh
+streamlit run app.py
+```
+
+In the website UI you can:
+
+- Import CSV entries
+- Add entries one by one with the manual form
+- Edit/delete any entries in the table before generation
+- Mix imported and manual entries in the same session
+- Generate and download the final PDF
 
 ## Sample output PDF
 

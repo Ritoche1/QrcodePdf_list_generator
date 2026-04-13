@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 
 import pandas as pd
 import qrcode
@@ -16,6 +17,15 @@ GRID_MARGIN_X_MM = 10
 GRID_MARGIN_Y_MM = 10
 LABEL_OFFSET_X_MM = 16
 LABEL_OFFSET_Y_MM = 55
+INVALID_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def image_filename(name):
+    """Build a safe image filename for an entry name."""
+    sanitized_name = INVALID_FILENAME_CHARS.sub("_", str(name)).strip("._")
+    if not sanitized_name:
+        sanitized_name = "entry"
+    return f"{sanitized_name}.png"
 
 
 def create_qr_code(name, url):
@@ -29,7 +39,7 @@ def create_qr_code(name, url):
     qr.add_data(url)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
-    img.save(os.path.join(IMAGE_DIR, f"{name}.png"))
+    img.save(os.path.join(IMAGE_DIR, image_filename(name)))
 
 
 def validate_data(data):
@@ -66,7 +76,7 @@ def generate_pdf_file(data):
         x = GRID_MARGIN_X_MM + QR_SIZE_MM * column_index
         y = GRID_MARGIN_Y_MM + CELL_HEIGHT_MM * row_index
 
-        path = os.path.join(IMAGE_DIR, f"{row['name']}.png")
+        path = os.path.join(IMAGE_DIR, image_filename(row["name"]))
         pdf.image(path, x, y, QR_SIZE_MM, QR_SIZE_MM)
         pdf.text(x + LABEL_OFFSET_X_MM, y + LABEL_OFFSET_Y_MM, row["name"])
 

@@ -17,7 +17,7 @@ def normalize_entries(data):
     normalized_data["name"] = normalized_data["name"].astype(str).str.strip()
     normalized_data["url"] = normalized_data["url"].astype(str).str.strip()
     normalized_data = normalized_data[
-        (normalized_data["name"] != "") | (normalized_data["url"] != "")
+        (normalized_data["name"] != "") & (normalized_data["url"] != "")
     ]
     return normalized_data.reset_index(drop=True)
 
@@ -77,23 +77,23 @@ def run_app():
                 st.error(str(exc))
 
     st.subheader("Entry list")
+    normalized_entries = normalize_entries(st.session_state.entries)
     edited_entries = st.data_editor(
-        normalize_entries(st.session_state.entries),
+        normalized_entries,
         num_rows="dynamic",
         use_container_width=True,
         hide_index=True,
     )
-    st.session_state.entries = edited_entries
-    st.caption(f"{len(normalize_entries(st.session_state.entries).index)} entrie(s) ready.")
+    normalized_edited_entries = normalize_entries(edited_entries)
+    st.session_state.entries = normalized_edited_entries
+    entry_count = len(normalized_edited_entries.index)
+    entry_word = "entry" if entry_count == 1 else "entries"
+    st.caption(f"{entry_count} {entry_word} ready.")
 
     if st.button("Generate QR codes and PDF"):
-        prepared_entries = normalize_entries(st.session_state.entries)
+        prepared_entries = st.session_state.entries
         if prepared_entries.empty:
             st.error("Add at least one complete entry before generating the PDF.")
-            return
-
-        if (prepared_entries["name"] == "").any() or (prepared_entries["url"] == "").any():
-            st.error("Every entry must include both name and url.")
             return
 
         validate_data(prepared_entries)

@@ -27,7 +27,7 @@ class AppEntryTests(unittest.TestCase):
         )
         normalized = normalize_entries(mixed)
         self.assertListEqual(list(normalized.columns), ["name", "url"])
-        self.assertEqual(len(normalized.index), 2)
+        self.assertEqual(len(normalized.index), 1)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Upload, Download, QrCode, FileDown, Wand2, Pencil,
 } from 'lucide-react';
@@ -11,8 +12,8 @@ import { EntryTable } from '@/components/entries/EntryTable';
 import { EntryFiltersBar } from '@/components/entries/EntryFilters';
 import { BulkActions } from '@/components/entries/BulkActions';
 import { ImportModal } from '@/components/entries/ImportModal';
-import { useProject } from '@/hooks/useProjects';
-import { useEntries, useDeleteEntry, useBulkStatus } from '@/hooks/useEntries';
+import { useProject, projectKeys } from '@/hooks/useProjects';
+import { useEntries, useDeleteEntry, useBulkStatus, entryKeys } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
 import { importExportApi, downloadBlob } from '@/lib/api';
 import type { EntryFilters } from '@/types';
@@ -20,6 +21,7 @@ import type { EntryFilters } from '@/types';
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const toast = useToastContext();
 
   // Filters & pagination
@@ -215,7 +217,11 @@ export function ProjectDetailPage() {
         projectId={id!}
         isOpen={importOpen}
         onClose={() => setImportOpen(false)}
-        onSuccess={(count) => {
+        onSuccess={async (count) => {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: entryKeys.all(id!) }),
+            queryClient.invalidateQueries({ queryKey: projectKeys.detail(id!) }),
+          ]);
           toast.success(`Imported ${count} entries successfully`);
           setImportOpen(false);
         }}

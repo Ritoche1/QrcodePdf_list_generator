@@ -12,9 +12,11 @@ import type {
   Stats,
   QrPreviewRequest,
   PdfLayoutOptions,
+  QrDesignOptions,
+  ProjectPdfFile,
 } from '@/types';
 
-const BASE_URL = (import.meta.env.VITE_API_URL as string) || '/api/v1';
+export const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || '/api/v1';
 
 function formatApiErrorMessage(payload: unknown, fallback: string): string {
   if (typeof payload === 'string') return payload;
@@ -131,7 +133,10 @@ function mapQrPreviewRequest(payload: QrPreviewRequest): BackendQrPreviewRequest
   };
 }
 
-function mapPdfLayoutRequest(options: PdfLayoutOptions): BackendPdfRequest {
+function mapPdfLayoutRequest(
+  options: PdfLayoutOptions,
+  design?: Pick<QrDesignOptions, 'foreground_color' | 'background_color' | 'error_correction'>
+): BackendPdfRequest {
   return {
     layout: {
       page_size: options.page_size,
@@ -144,9 +149,9 @@ function mapPdfLayoutRequest(options: PdfLayoutOptions): BackendPdfRequest {
       show_labels: options.show_labels,
       show_serial: false,
       label_font_size: options.font_size ?? 8,
-      fg_color: '#000000',
-      bg_color: '#ffffff',
-      error_correction: 'M',
+      fg_color: design?.foreground_color ?? '#000000',
+      bg_color: design?.background_color ?? '#ffffff',
+      error_correction: design?.error_correction ?? 'M',
     },
     entry_ids: options.entry_ids?.map((entryId) => Number(entryId)).filter((entryId) => !Number.isNaN(entryId)),
   };
@@ -167,7 +172,7 @@ function normalizeProject(payload: Partial<Project> & { id?: string | number }):
 }
 
 export const apiClient = axios.create({
-  baseURL: BASE_URL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -305,8 +310,12 @@ export const qrApi = {
 // ─── PDF ─────────────────────────────────────────────────────────────────────
 
 export const pdfApi = {
-  generate: async (projectId: string, options: PdfLayoutOptions): Promise<Blob> => {
-    const request = mapPdfLayoutRequest(options);
+  generate: async (
+    projectId: string,
+    options: PdfLayoutOptions,
+    design?: Pick<QrDesignOptions, 'foreground_color' | 'background_color' | 'error_correction'>
+  ): Promise<Blob> => {
+    const request = mapPdfLayoutRequest(options, design);
     const { data } = await apiClient.post<Blob>(
       `/projects/${projectId}/pdf`,
       request,
@@ -315,12 +324,29 @@ export const pdfApi = {
     return data;
   },
 
-  preview: async (projectId: string, options: PdfLayoutOptions): Promise<Blob> => {
-    const request = mapPdfLayoutRequest(options);
+  preview: async (
+    projectId: string,
+    options: PdfLayoutOptions,
+    design?: Pick<QrDesignOptions, 'foreground_color' | 'background_color' | 'error_correction'>
+  ): Promise<Blob> => {
+    const request = mapPdfLayoutRequest(options, design);
     const { data } = await apiClient.post<Blob>(
       `/projects/${projectId}/pdf/preview`,
       request,
       { responseType: 'blob' }
+    );
+    return data;
+  },
+
+  list: async (projectId: string): Promise<ProjectPdfFile[]> => {
+    const { data } = await apiClient.get<ProjectPdfFile[]>(`/projects/${projectId}/pdfs`);
+    return Array.isArray(data) ? data : [];
+  },
+
+  download: async (projectId: string, fileName: string): Promise<Blob> => {
+    const { data } = await apiClient.get<Blob>(
+      `/projects/${projectId}/pdfs/download`,
+      { params: { file_name: fileName }, responseType: 'blob' }
     );
     return data;
   },

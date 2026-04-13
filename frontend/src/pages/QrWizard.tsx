@@ -173,7 +173,7 @@ export function QrWizardPage() {
     if (!project) return;
     setDownloading(true);
     try {
-      const blob = await pdfApi.generate(id!, layoutWithEntries);
+      const blob = await pdfApi.generate(id!, layoutWithEntries, design);
       const generatedName = normalizePdfFileName(customPdfName, defaultPdfName);
       const previewUrl = URL.createObjectURL(blob);
       generatedPdfUrlsRef.current.push(previewUrl);
@@ -326,6 +326,7 @@ export function QrWizardPage() {
           <PdfPreview
             projectId={id!}
             options={layoutWithEntries}
+            design={design}
             enabled
             className="lg:sticky lg:top-8"
           />

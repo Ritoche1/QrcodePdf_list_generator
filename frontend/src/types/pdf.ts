@@ -14,3 +14,9 @@ export interface PdfLayoutOptions {
   font_size?: number;
   entry_ids?: string[];
 }
+
+export interface ProjectPdfFile {
+  file_name: string;
+  size_bytes: number;
+  created_at: string;
+}

@@ -26,6 +26,7 @@ Thumbs.db
 # Data (local dev)
 /data/
 *.db
+instance/
 
 # Environment
 .env

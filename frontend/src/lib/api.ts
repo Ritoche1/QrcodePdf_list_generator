@@ -136,8 +136,12 @@ function mapEntryContentFromBackend(
           ? c.encryption
           : 'WPA';
       const security = rawSecurity.toUpperCase();
-      const encryption: 'WPA' | 'WEP' | 'None' =
-        security === 'WEP' ? 'WEP' : security === 'NONE' || security === 'NOPASS' ? 'None' : 'WPA';
+      let encryption: 'WPA' | 'WEP' | 'None' = 'WPA';
+      if (security === 'WEP') {
+        encryption = 'WEP';
+      } else if (security === 'NONE' || security === 'NOPASS') {
+        encryption = 'None';
+      }
       return {
         type: 'wifi',
         ssid: typeof c.ssid === 'string' ? c.ssid : '',
@@ -328,7 +332,7 @@ export const entriesApi = {
   ): Promise<Entry[]> => {
     const { data } = await apiClient.post<Entry[]>(
       `/projects/${projectId}/entries/bulk`,
-      entries.map((entry) => mapEntryWritePayload(entry))
+      { entries }
     );
     return data.map((entry) => normalizeEntry(entry));
   },

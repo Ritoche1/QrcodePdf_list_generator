@@ -29,7 +29,7 @@ cd QrcodePdf_list_generator
 2. Install dependencies:
 
 ```sh
-pip install -r requirement.txt
+.venv\Scripts\python.exe -m pip install -r requirement.txt
 ```
 
 ## Input format (CLI mode)
@@ -54,7 +54,7 @@ Python,https://www.python.org
 Run:
 
 ```sh
-python3 main.py
+.venv\Scripts\python.exe main.py
 ```
 
 Outputs:

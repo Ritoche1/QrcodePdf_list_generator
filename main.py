@@ -9,7 +9,6 @@ import time
 import uuid
 import zipfile
 
-import pandas as pd
 import qrcode
 from flask import Flask, jsonify, redirect, render_template_string, request, send_file, url_for
 from fpdf import FPDF
@@ -51,7 +50,8 @@ def create_qr_code(name, url, image_dir=IMAGE_DIR):
 
 def validate_data(data):
     """Validate required columns before generating files."""
-    missing_columns = REQUIRED_COLUMNS - set(data.columns)
+    header_columns = set(data[0].keys()) if data else set()
+    missing_columns = REQUIRED_COLUMNS - header_columns
     if missing_columns:
         missing = ", ".join(sorted(missing_columns))
         raise ValueError(f"CSV is missing required column(s): {missing}")
@@ -115,7 +115,7 @@ def generate_pdf_file(data, image_dir=IMAGE_DIR, output_pdf=OUTPUT_PDF):
     pdf = FPDF("P", "mm", "A4")
     pdf.add_page()
     pdf.set_font("Times", size=20)
-    for index, row in data.iterrows():
+    for index, row in enumerate(data):
         position_on_page = index % items_per_page
         if position_on_page == 0 and index != 0:
             pdf.add_page()
@@ -135,7 +135,8 @@ def generate_pdf_file(data, image_dir=IMAGE_DIR, output_pdf=OUTPUT_PDF):
 
 def load_data():
     """Load and validate input CSV data."""
-    data = pd.read_csv(CSV_FILE)
+    with open(CSV_FILE, newline="", encoding="utf-8-sig") as csv_file:
+        data = list(csv.DictReader(csv_file))
     validate_data(data)
     return data
 

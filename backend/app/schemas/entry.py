@@ -3,7 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.models.entry import ContentType, EntryStatus
+from app.models.entry import ContentType, EntryStatus, QrGenerationStatus
 
 
 # Content data schemas for different QR types
@@ -67,6 +67,10 @@ class EntryResponse(BaseModel):
     tags: list[str]
     serial_number: str | None
     qr_image_path: str | None
+    qr_status: QrGenerationStatus
+    qr_data_hash: str | None
+    qr_generated_at: datetime | None
+    qr_error_message: str | None
     created_at: datetime
     updated_at: datetime
 

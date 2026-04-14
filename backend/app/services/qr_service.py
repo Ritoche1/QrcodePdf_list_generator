@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import re
+from hmac import new as hmac_new
 from pathlib import Path
 from typing import Any
 
@@ -167,6 +168,26 @@ def save_qr_image(entry_id: int, image_bytes: bytes) -> str:
     file_path = qr_dir / filename
     file_path.write_bytes(image_bytes)
     return f"qr/{filename}"
+
+
+def load_qr_image(relative_path: str | None) -> bytes | None:
+    """Load QR image bytes from a relative file path if available."""
+    if not relative_path:
+        return None
+    file_path = (settings.files_dir / relative_path).resolve()
+    if not file_path.exists():
+        return None
+    qr_dir = (settings.files_dir / "qr").resolve()
+    if file_path.parent != qr_dir:
+        return None
+    return file_path.read_bytes()
+
+
+def compute_qr_data_hash(content_type: str, content_data: dict[str, Any]) -> str:
+    """Build normalized QR payload and return deterministic content hash."""
+    normalized_type = getattr(content_type, "value", content_type)
+    content, _ = build_qr_content(str(normalized_type), content_data)
+    return hmac_new(b"qr-cache-v1", content.encode("utf-8"), "sha256").hexdigest()
 
 
 def check_duplicate_content(

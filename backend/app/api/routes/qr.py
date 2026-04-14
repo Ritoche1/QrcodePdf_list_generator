@@ -2,21 +2,33 @@
 from __future__ import annotations
 
 import json
+import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.models.entry import Entry
-from app.schemas.qr import QRGenerateRequest, QRGenerateResponse, QRPreviewRequest
+from app.models.entry import Entry, QrGenerationStatus
+from app.schemas.qr import (
+    QRBulkGenerateRequest,
+    QRBulkGenerateResponse,
+    QRGenerateRequest,
+    QRGenerateResponse,
+    QRPreviewRequest,
+)
 from app.services.qr_service import (
     build_qr_content,
+    compute_qr_data_hash,
     generate_qr_png,
+    load_qr_image,
     save_qr_image,
 )
 
 router = APIRouter(prefix="/qr", tags=["qr"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/preview")
@@ -71,12 +83,31 @@ async def qr_generate(
     if isinstance(content_data, str):
         content_data = json.loads(content_data)
 
+    normalized_content_type = getattr(entry.content_type, "value", entry.content_type)
+
     try:
-        content, warnings = build_qr_content(entry.content_type, content_data)
+        content, _ = build_qr_content(str(normalized_content_type), content_data)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    image_bytes, warnings = generate_qr_png(
+    data_hash = compute_qr_data_hash(str(normalized_content_type), content_data)
+    if (
+        entry.qr_image_path
+        and entry.qr_data_hash == data_hash
+        and entry.qr_status == QrGenerationStatus.generated
+        and load_qr_image(entry.qr_image_path) is not None
+    ):
+        return QRGenerateResponse(
+            entry_id=entry_id,
+            qr_image_path=entry.qr_image_path,
+            qr_status=QrGenerationStatus.generated,
+            qr_data_hash=data_hash,
+            qr_generated_at=entry.qr_generated_at or entry.updated_at,
+            regenerated=False,
+            message="QR code reused from cache",
+        )
+
+    image_bytes, _ = generate_qr_png(
         content,
         fg_color=payload.fg_color,
         bg_color=payload.bg_color,
@@ -85,14 +116,68 @@ async def qr_generate(
         border=payload.border,
     )
 
-    relative_path = save_qr_image(entry_id, image_bytes)
-    entry.qr_image_path = relative_path
-    entry.status = "generated"
+    try:
+        relative_path = save_qr_image(entry_id, image_bytes)
+        entry.qr_image_path = relative_path
+        entry.qr_data_hash = data_hash
+        entry.qr_generated_at = datetime.now(timezone.utc)
+        entry.qr_status = QrGenerationStatus.generated
+        entry.qr_error_message = None
+        entry.status = "generated"
+        await session.flush()
+        return QRGenerateResponse(
+            entry_id=entry_id,
+            qr_image_path=relative_path,
+            qr_status=QrGenerationStatus.generated,
+            qr_data_hash=data_hash,
+            qr_generated_at=entry.qr_generated_at,
+            regenerated=True,
+            message="QR code generated successfully",
+        )
+    except Exception as exc:
+        entry.qr_status = QrGenerationStatus.error
+        entry.qr_error_message = str(exc)[:500]
+        await session.flush()
+        logger.exception("Failed to generate QR code for entry_id=%s", entry_id)
+        raise HTTPException(status_code=500, detail="Failed to generate QR code")
 
-    await session.flush()
 
-    return QRGenerateResponse(
-        entry_id=entry_id,
-        qr_image_path=relative_path,
-        message="QR code generated successfully",
+@router.post("/generate-bulk", response_model=QRBulkGenerateResponse)
+async def qr_generate_bulk(
+    payload: QRBulkGenerateRequest,
+    session: AsyncSession = Depends(get_session),
+) -> QRBulkGenerateResponse:
+    stmt = select(Entry).where(Entry.id.in_(payload.entry_ids))
+    result = await session.execute(stmt)
+    entries = result.scalars().all()
+
+    if not entries:
+        raise HTTPException(status_code=404, detail="No entries found")
+
+    generated = 0
+    cached = 0
+    errors = 0
+    responses: list[QRGenerateResponse] = []
+
+    for entry in entries:
+        try:
+            response = await qr_generate(
+                entry.id,
+                QRGenerateRequest(),
+                session=session,
+            )
+            responses.append(response)
+            if response.regenerated:
+                generated += 1
+            else:
+                cached += 1
+        except HTTPException:
+            errors += 1
+
+    return QRBulkGenerateResponse(
+        processed=len(entries),
+        generated=generated,
+        cached=cached,
+        errors=errors,
+        results=responses,
     )

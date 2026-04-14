@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -33,4 +34,20 @@ class QRGenerateRequest(BaseModel):
 class QRGenerateResponse(BaseModel):
     entry_id: int
     qr_image_path: str
+    qr_status: str
+    qr_data_hash: str
+    qr_generated_at: datetime
+    regenerated: bool
     message: str = "QR code generated successfully"
+
+
+class QRBulkGenerateRequest(BaseModel):
+    entry_ids: list[int] = Field(..., min_length=1)
+
+
+class QRBulkGenerateResponse(BaseModel):
+    processed: int
+    generated: int
+    cached: int
+    errors: int
+    results: list[QRGenerateResponse]

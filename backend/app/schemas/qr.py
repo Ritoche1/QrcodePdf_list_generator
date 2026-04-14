@@ -43,7 +43,7 @@ class QRGenerateResponse(BaseModel):
     message: str = "QR code generated successfully"
 
 
-class QRBulkGenerateRequest(BaseModel):
+class QRBulkGenerateRequest(QRGenerateRequest):
     entry_ids: list[int] = Field(..., min_length=1)
 
 

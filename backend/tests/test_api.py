@@ -269,6 +269,66 @@ async def test_qr_bulk_generation(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_qr_bulk_generation_applies_design_overrides_to_all_entries(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    project = await client.post("/api/v1/projects", json={"name": "QR bulk override test"})
+    assert project.status_code == 201
+    pid = project.json()["id"]
+
+    entry_ids = []
+    for index in range(2):
+        created = await client.post(
+            f"/api/v1/projects/{pid}/entries",
+            json={
+                "content_type": "text",
+                "content_data": {"text": f"Bulk override {index}"},
+                "label": f"Bulk override {index}",
+            },
+        )
+        assert created.status_code == 201
+        entry_ids.append(created.json()["id"])
+
+    captured_payloads: list[tuple[str, str, str]] = []
+
+    def fake_generate_qr_png(
+        _content,
+        fg_color,
+        bg_color,
+        error_correction,
+        box_size,
+        border,
+    ):
+        assert box_size == 10
+        assert border == 4
+        captured_payloads.append((fg_color, bg_color, error_correction))
+        return b"bulk-qr", []
+
+    monkeypatch.setattr("app.api.routes.qr.generate_qr_png", fake_generate_qr_png)
+    monkeypatch.setattr("app.api.routes.qr.save_qr_image", lambda entry_id, _bytes: f"qr/{entry_id}.png")
+
+    bulk = await client.post(
+        "/api/v1/qr/generate-bulk",
+        json={
+            "entry_ids": entry_ids,
+            "fg_color": "#12ab34",
+            "bg_color": "#abcdef",
+            "error_correction": "H",
+        },
+    )
+    assert bulk.status_code == 200
+    payload = bulk.json()
+    assert payload["processed"] == 2
+    assert payload["errors"] == 0
+    assert payload["generated"] == 2
+    assert captured_payloads == [
+        ("#12ab34", "#abcdef", "H"),
+        ("#12ab34", "#abcdef", "H"),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_stats(client: AsyncClient):
     r = await client.get("/api/v1/stats")
     assert r.status_code == 200

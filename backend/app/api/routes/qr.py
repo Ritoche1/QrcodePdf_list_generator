@@ -177,12 +177,19 @@ async def qr_generate_bulk(
     cached = 0
     errors = 0
     responses: list[QRGenerateResponse] = []
+    generate_payload = QRGenerateRequest(
+        fg_color=payload.fg_color,
+        bg_color=payload.bg_color,
+        error_correction=payload.error_correction,
+        box_size=payload.box_size,
+        border=payload.border,
+    )
 
     for entry in entries:
         try:
             response = await qr_generate(
                 entry.id,
-                QRGenerateRequest(),
+                generate_payload,
                 session=session,
             )
             responses.append(response)

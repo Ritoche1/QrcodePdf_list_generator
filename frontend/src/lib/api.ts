@@ -78,6 +78,8 @@ interface BackendQrGenerateRequest {
   fg_color?: string;
   bg_color?: string;
   error_correction?: 'L' | 'M' | 'Q' | 'H';
+  box_size?: number;
+  border?: number;
 }
 
 interface BackendPdfLayoutOptions {
@@ -410,13 +412,14 @@ export const qrApi = {
     return normalizeEntry(data);
   },
 
-  generateBulk: async (entryIds: string[]): Promise<void> => {
+  generateBulk: async (entryIds: string[], payload?: BackendQrGenerateRequest): Promise<void> => {
     const normalizedEntryIds = entryIds
       .filter((entryId): entryId is string => typeof entryId === 'string' && entryId.trim().length > 0)
       .map((entryId) => Number(entryId))
       .filter((entryId) => Number.isFinite(entryId) && entryId > 0);
     await apiClient.post('/qr/generate-bulk', {
       entry_ids: normalizedEntryIds,
+      ...(payload ?? {}),
     });
   },
 };

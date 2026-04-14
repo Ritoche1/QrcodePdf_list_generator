@@ -208,7 +208,7 @@ async def update_entry(
         payload_content_type = getattr(payload.content_type, "value", payload.content_type)
         current_content_type = getattr(entry.content_type, "value", entry.content_type)
         if payload_content_type != current_content_type:
-            entry.content_type = payload_content_type
+            entry.content_type = payload.content_type
             content_changed = True
     if payload.content_data is not None:
         entry.content_data = json.dumps(payload.content_data)

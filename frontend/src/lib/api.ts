@@ -92,6 +92,7 @@ interface BackendPdfLayoutOptions {
 
 interface BackendPdfRequest {
   layout: BackendPdfLayoutOptions;
+  qr_render_mode?: 'single_design' | 'per_entry_cached';
   entry_ids?: number[];
 }
 
@@ -230,6 +231,7 @@ function mapPdfLayoutRequest(
       bg_color: design?.background_color ?? STANDARD_QR_BACKGROUND_COLOR,
       error_correction: design?.error_correction ?? STANDARD_QR_ERROR_CORRECTION,
     },
+    qr_render_mode: options.qr_render_mode ?? 'single_design',
     entry_ids: options.entry_ids?.map((entryId) => Number(entryId)).filter((entryId) => !Number.isNaN(entryId)),
   };
 }

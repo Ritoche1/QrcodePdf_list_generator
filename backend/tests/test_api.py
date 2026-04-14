@@ -427,6 +427,124 @@ async def test_pdf_generation_uses_project_default_design_when_not_provided(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("qr_render_mode", ["single_design", "per_entry_cached"])
+async def test_pdf_generation_bulk_supports_render_modes(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    qr_render_mode: str,
+):
+    project_resp = await client.post("/api/v1/projects", json={"name": "PDF Render Mode Test"})
+    assert project_resp.status_code == 201
+    pid = project_resp.json()["id"]
+
+    for index in range(2):
+        created = await client.post(
+            f"/api/v1/projects/{pid}/entries",
+            json={
+                "content_type": "text",
+                "content_data": {"text": f"mode-{index}"},
+            },
+        )
+        assert created.status_code == 201
+
+    captured_layout: dict[str, str] = {}
+    captured_entry_count = {"value": 0}
+
+    class FakePDFGenerator:
+        def __init__(self, layout):
+            captured_layout.update(layout)
+
+        def generate_pdf(self, entries):
+            captured_entry_count["value"] = len(entries)
+            return b"%PDF-1.4\n", 1
+
+    monkeypatch.setattr("app.api.routes.pdf.QRPDFGenerator", FakePDFGenerator)
+    monkeypatch.setattr("app.api.routes.pdf.save_pdf", lambda _project_id, _pdf_bytes: None)
+
+    generated = await client.post(
+        f"/api/v1/projects/{pid}/pdf",
+        json={
+            "layout": {"columns": 1, "rows": 2},
+            "qr_render_mode": qr_render_mode,
+        },
+    )
+    assert generated.status_code == 200
+    assert captured_layout["qr_render_mode"] == qr_render_mode
+    assert captured_entry_count["value"] == 2
+
+
+def test_pdf_generator_per_entry_mode_uses_standard_fallback_design(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from app.services import pdf_service
+
+    captured: dict[str, str] = {}
+
+    monkeypatch.setattr(pdf_service, "load_qr_image", lambda _path: None)
+    monkeypatch.setattr(pdf_service, "build_qr_content", lambda _type, _data: ("fallback", []))
+
+    def fake_generate_qr_png(content, fg_color, bg_color, error_correction, box_size, border):
+        captured["content"] = content
+        captured["fg_color"] = fg_color
+        captured["bg_color"] = bg_color
+        captured["error_correction"] = error_correction
+        return b"generated", []
+
+    monkeypatch.setattr(pdf_service, "generate_qr_png", fake_generate_qr_png)
+
+    generator = pdf_service.QRPDFGenerator(
+        {
+            "fg_color": "#ff0000",
+            "bg_color": "#000000",
+            "error_correction": "H",
+            "qr_render_mode": "per_entry_cached",
+        }
+    )
+
+    qr_bytes = generator._generate_entry_qr_bytes(
+        {
+            "content_type": "text",
+            "content_data": {"text": "fallback"},
+            "qr_status": "not_generated",
+            "qr_image_path": None,
+        }
+    )
+
+    assert qr_bytes == b"generated"
+    assert captured["content"] == "fallback"
+    assert captured["fg_color"] == STANDARD_QR_FOREGROUND_COLOR
+    assert captured["bg_color"] == STANDARD_QR_BACKGROUND_COLOR
+    assert captured["error_correction"] == STANDARD_QR_ERROR_CORRECTION
+
+
+def test_pdf_generator_per_entry_mode_reuses_valid_cached_qr(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from app.services import pdf_service
+
+    monkeypatch.setattr(pdf_service, "load_qr_image", lambda _path: b"cached")
+    monkeypatch.setattr(pdf_service, "compute_qr_data_hash", lambda _type, _data: "hash")
+    monkeypatch.setattr(
+        pdf_service,
+        "generate_qr_png",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("Should not regenerate QR")),
+    )
+
+    generator = pdf_service.QRPDFGenerator({"qr_render_mode": "per_entry_cached"})
+    qr_bytes = generator._generate_entry_qr_bytes(
+        {
+            "content_type": "text",
+            "content_data": {"text": "cached"},
+            "qr_status": "generated",
+            "qr_data_hash": "hash",
+            "qr_image_path": "qr/entry.png",
+        }
+    )
+
+    assert qr_bytes == b"cached"
+
+
+@pytest.mark.asyncio
 async def test_export_zip_respects_selected_entry_ids(client: AsyncClient):
     project_resp = await client.post("/api/v1/projects", json={"name": "ZIP Selection Test"})
     assert project_resp.status_code == 201

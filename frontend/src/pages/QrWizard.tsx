@@ -24,7 +24,13 @@ import {
   STANDARD_QR_FOREGROUND_COLOR,
 } from '@/lib/qrDefaults';
 import type {
-  ContentType, CreateEntry, Entry, EntryFilters, PdfLayoutOptions, QrContentData, QrDesignOptions,
+  ContentType,
+  CreateEntry,
+  Entry,
+  EntryFilters,
+  PdfLayoutOptions,
+  QrContentData,
+  QrDesignOptions,
 } from '@/types';
 
 type WizardStep = 'select' | 'design' | 'layout' | 'download';
@@ -55,6 +61,7 @@ const defaultPdfLayout: PdfLayoutOptions = {
   spacing: 5,
   show_labels: true,
   font_size: 8,
+  qr_render_mode: 'single_design',
 };
 const MAX_GENERATED_PDFS = 10;
 
@@ -197,7 +204,8 @@ export function QrWizardPage() {
     if (!project) return;
     setDownloading(true);
     try {
-      const blob = await pdfApi.generate(id!, layoutWithEntries, design);
+      const selectedDesign = pdfLayout.qr_render_mode === 'single_design' ? design : undefined;
+      const blob = await pdfApi.generate(id!, layoutWithEntries, selectedDesign);
       const generatedName = normalizePdfFileName(customPdfName, defaultPdfName);
       const previewUrl = URL.createObjectURL(blob);
       generatedPdfUrlsRef.current.push(previewUrl);
@@ -382,6 +390,51 @@ export function QrWizardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <h3 className="text-sm font-semibold text-gray-700 mb-4">QR Design Options</h3>
+            <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-gray-700">PDF QR rendering mode</p>
+                <span
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 bg-white text-xs text-gray-500 cursor-help"
+                  title="Choose whether the PDF should use each entry's already-generated QR image, or force one design for every QR in the PDF."
+                  aria-label="Help about QR rendering mode"
+                >
+                  ?
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Per-entry mode reuses each entry&apos;s cached QR image when available and falls back to the
+                standard QR design if missing/outdated. Single-design mode applies the design settings below
+                to every QR in this PDF.
+              </p>
+              <div className="mt-3 space-y-2">
+                <label className="flex items-start gap-2 rounded-md border border-gray-200 bg-white p-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="pdf-qr-render-mode"
+                    value="per_entry_cached"
+                    checked={pdfLayout.qr_render_mode === 'per_entry_cached'}
+                    onChange={() => setPdfLayout((prev) => ({ ...prev, qr_render_mode: 'per_entry_cached' }))}
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Use each entry&apos;s cached QR design (standard fallback)
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 rounded-md border border-gray-200 bg-white p-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="pdf-qr-render-mode"
+                    value="single_design"
+                    checked={pdfLayout.qr_render_mode !== 'per_entry_cached'}
+                    onChange={() => setPdfLayout((prev) => ({ ...prev, qr_render_mode: 'single_design' }))}
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Apply one selected design/template for the entire PDF
+                  </span>
+                </label>
+              </div>
+            </div>
             <QrDesignOptionsForm
               value={design}
               onChange={(next) => {
@@ -389,6 +442,11 @@ export function QrWizardPage() {
                 setDesign(next);
               }}
             />
+            {pdfLayout.qr_render_mode === 'per_entry_cached' && (
+              <p className="mt-3 text-xs text-gray-500">
+                Design settings above are kept for single-design mode but are not applied while per-entry mode is selected.
+              </p>
+            )}
             <div className="mt-6 border-t border-gray-100 pt-5">
               <p className="text-sm font-medium text-gray-700 mb-3">Preview Content</p>
               {!canSelectPreviewType && (
@@ -432,7 +490,7 @@ export function QrWizardPage() {
           <PdfPreview
             projectId={id!}
             options={layoutWithEntries}
-            design={design}
+            design={pdfLayout.qr_render_mode === 'single_design' ? design : undefined}
             enabled
             className="lg:sticky lg:top-8"
           />

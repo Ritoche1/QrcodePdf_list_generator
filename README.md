@@ -22,6 +22,7 @@ QRCodePDF is an open-source, self-hosted web application for generating QR codes
 
 ### PDF & Export
 - **Configurable PDF layout**: page size (A4/Letter), margins, grid columns × rows, QR size, spacing
+- **QR render mode selection**: use each entry's cached QR design (with standard fallback) or force one selected design for the whole PDF
 - **Labels & serial numbers**: optional text below each QR code
 - **PDF preview**: see the first page before downloading
 - **Batch PNG export**: download all QR codes as individual PNGs in a ZIP archive

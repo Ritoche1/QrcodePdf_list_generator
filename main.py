@@ -3,7 +3,6 @@
 import argparse
 import csv
 import os
-import re
 import pandas as pd
 import shutil
 import tempfile
@@ -35,15 +34,6 @@ UPLOADS = {}
 JOBS = {}
 UPLOADS_LOCK = threading.Lock()
 JOBS_LOCK = threading.Lock()
-INVALID_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
-
-
-def image_filename(name):
-    """Build a safe image filename for an entry name."""
-    sanitized_name = INVALID_FILENAME_CHARS.sub("_", str(name)).strip("._")
-    if not sanitized_name:
-        sanitized_name = "entry"
-    return f"{sanitized_name}.png"
 
 
 app = Flask(__name__)
@@ -84,7 +74,7 @@ def create_qr_code(name, url, image_dir=IMAGE_DIR):
     qr.add_data(url)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
-    img.save(os.path.join(image_dir, image_filename(name)))
+    img.save(os.path.join(image_dir, f"{name}.png"))
 
 
 def validate_data(data):
@@ -168,7 +158,7 @@ def generate_pdf_file(data, image_dir=IMAGE_DIR, output_pdf=OUTPUT_PDF):
         y = GRID_MARGIN_Y_MM + CELL_HEIGHT_MM * row_index
 
         image_name = row.get("image_name", row["name"])
-        path = os.path.join(image_dir, image_filename(image_name))
+        path = os.path.join(image_dir, f"{image_name}.png")
         pdf.image(path, x, y, QR_SIZE_MM, QR_SIZE_MM)
         pdf.text(x + LABEL_OFFSET_X_MM, y + LABEL_OFFSET_Y_MM, str(row["name"]))
 

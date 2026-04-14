@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { FolderOpen, QrCode, FileDown, TrendingUp, Plus, ArrowRight } from 'lucide-react';
+import { FolderOpen, QrCode, FileDown, TrendingUp, Plus, ArrowRight, } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
 import { Card, Button, Badge } from '@/components/ui';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
@@ -56,10 +56,10 @@ export function Dashboard() {
         description="Overview of your QR code projects"
         actions={
           <Button
-            leftIcon={<Plus className="w-4 h-4" />}
+            leftIcon={<FolderOpen className="w-4 h-4" />}
             onClick={() => navigate('/projects')}
           >
-            New Project
+            Project
           </Button>
         }
       />

@@ -2,59 +2,23 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Upload, Download, QrCode, FileDown,
+  Plus, Download, FileDown, QrCode
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, Modal, ConfirmModal, Input } from '@/components/ui';
+import { Button, Card, Modal, ConfirmModal } from '@/components/ui';
+import { Input, Textarea } from '@/components/ui/Input';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { EntryTable } from '@/components/entries/EntryTable';
 import { EntryFiltersBar } from '@/components/entries/EntryFilters';
 import { BulkActions } from '@/components/entries/BulkActions';
+import { EntryEditorModal } from '@/components/entries/EntryEditorModal';
 import { ImportModal } from '@/components/entries/ImportModal';
-import { QrTypeSelector } from '@/components/qr/QrTypeSelector';
-import { QrContentForm } from '@/components/qr/QrContentForm';
 import { useProject, projectKeys } from '@/hooks/useProjects';
-import { useEntries, useDeleteEntry, useBulkStatus, useUpdateEntry, entryKeys } from '@/hooks/useEntries';
+import { useEntries, useDeleteEntry, useBulkStatus, useCreateEntry, entryKeys } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
 import { importExportApi, downloadBlob } from '@/lib/api';
-import type { EntryFilters, Entry, ContentType, QrContentData } from '@/types';
-
-function createDefaultContent(type: ContentType): QrContentData {
-  switch (type) {
-    case 'url':
-      return { type: 'url', url: 'https://example.com' };
-    case 'text':
-      return { type: 'text', text: 'Sample text' };
-    case 'vcard':
-      return { type: 'vcard', first_name: 'John', last_name: 'Doe' };
-    case 'wifi':
-      return { type: 'wifi', ssid: 'MyWifi', encryption: 'WPA', hidden: false };
-  }
-}
-
-function hasMeaningfulContent(content: QrContentData): boolean {
-  switch (content.type) {
-    case 'url':
-      return content.url.trim().length > 0;
-    case 'text':
-      return content.text.trim().length > 0;
-    case 'vcard':
-      return (
-        content.first_name.trim().length > 0 ||
-        content.last_name.trim().length > 0 ||
-        (content.phone?.trim().length ?? 0) > 0 ||
-        (content.email?.trim().length ?? 0) > 0 ||
-        (content.organization?.trim().length ?? 0) > 0 ||
-        (content.title?.trim().length ?? 0) > 0 ||
-        (content.address?.trim().length ?? 0) > 0
-      );
-    case 'wifi':
-      return (
-        content.ssid.trim().length > 0 ||
-        (content.password?.trim().length ?? 0) > 0
-      );
-  }
-}
+import type { CreateEntry } from '@/types';
+import type { EntryFilters } from '@/types';
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -75,17 +39,15 @@ export function ProjectDetailPage() {
 
   // Modals
   const [importOpen, setImportOpen] = useState(false);
+  const [manualEntryOpen, setManualEntryOpen] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
-  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
-  const [editLabel, setEditLabel] = useState('');
-  const [editContentType, setEditContentType] = useState<ContentType>('text');
-  const [editContent, setEditContent] = useState<QrContentData>(createDefaultContent('text'));
+  const [editOpen, setEditOpen] = useState(false);
 
   const { data: project, isLoading: projectLoading } = useProject(id!);
   const { data: entriesData, isLoading: entriesLoading } = useEntries(id!, filters);
   const { mutateAsync: deleteEntry, isPending: isDeleting } = useDeleteEntry(id!);
   const { mutateAsync: bulkStatus, isPending: isBulkLoading } = useBulkStatus(id!);
-  const { mutateAsync: updateEntry, isPending: isUpdating } = useUpdateEntry(id!);
+  const { mutateAsync: createEntry, isPending: isCreatingEntry } = useCreateEntry(id!);
 
   const entries = entriesData?.items ?? [];
   const total = entriesData?.total ?? 0;
@@ -146,41 +108,15 @@ export function ProjectDetailPage() {
     }
   };
 
-  const handleOpenEditEntry = (entry: Entry) => {
-    setEditingEntry(entry);
-    setEditLabel(entry.label ?? '');
-    setEditContentType(entry.content_type);
-    setEditContent(entry.content);
-  };
-
-  const handleSaveEntry = async () => {
-    if (!editingEntry) return;
+  const handleCreateEntry = async (payload: CreateEntry) => {
     try {
-      await updateEntry({
-        id: editingEntry.id,
-        payload: {
-          label: editLabel.trim() || undefined,
-          content_type: editContentType,
-          content: editContent,
-        },
-      });
-      toast.success('Entry updated');
-      setEditingEntry(null);
+      await createEntry(payload);
+      await queryClient.invalidateQueries({ queryKey: projectKeys.detail(id!) });
+      toast.success('Entry added');
+      setManualEntryOpen(false);
     } catch {
-      toast.error('Failed to update entry');
+      toast.error('Failed to add entry');
     }
-  };
-
-  const handleEditTypeChange = (type: ContentType) => {
-    if (type === editContentType) return;
-    if (
-      hasMeaningfulContent(editContent) &&
-      !window.confirm('Changing type will replace the current content. Continue?')
-    ) {
-      return;
-    }
-    setEditContentType(type);
-    setEditContent(createDefaultContent(type));
   };
 
   return (
@@ -194,14 +130,31 @@ export function ProjectDetailPage() {
         ]}
         actions={
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<Upload className="w-4 h-4" />}
-              onClick={() => setImportOpen(true)}
-            >
-              Import
-            </Button>
+            <div className="relative group">
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<Plus className="w-4 h-4" />}
+              >
+                Add
+              </Button>
+              <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-20 w-36">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+                  <button
+                    onClick={() => setImportOpen(true)}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Import
+                  </button>
+                  <button
+                    onClick={() => setManualEntryOpen(true)}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Add Entry
+                  </button>
+                </div>
+              </div>
+            </div>
             <div className="relative group">
               <Button
                 variant="outline"
@@ -210,29 +163,23 @@ export function ProjectDetailPage() {
               >
                 Export
               </Button>
-              <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 hidden group-hover:block z-20">
-                <button
-                  onClick={() => handleExport('csv')}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  Export CSV
-                </button>
-                <button
-                  onClick={() => handleExport('xlsx')}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  Export Excel
-                </button>
+              <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-20 w-36">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+                  <button
+                    onClick={() => handleExport('csv')}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => handleExport('xlsx')}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Export Excel
+                  </button>
+                </div>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<QrCode className="w-4 h-4" />}
-              onClick={() => navigate(`/projects/${id}/generate`)}
-            >
-              Generate PDF
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -243,10 +190,10 @@ export function ProjectDetailPage() {
             </Button>
             <Button
               size="sm"
-              leftIcon={<Plus className="w-4 h-4" />}
+              leftIcon={<QrCode className="w-4 h-4" />}
               onClick={() => navigate(`/projects/${id}/generate`)}
             >
-              Add & Generate
+              Generate
             </Button>
           </div>
         }
@@ -284,7 +231,6 @@ export function ProjectDetailPage() {
         selectedIds={selectedIds}
         onSelectAll={handleSelectAll}
         onSelectRow={handleSelectRow}
-        onEdit={handleOpenEditEntry}
         onDelete={(entry) => setDeleteEntryId(entry.id)}
       />
 
@@ -315,6 +261,14 @@ export function ProjectDetailPage() {
         }}
       />
 
+      <EntryEditorModal
+        isOpen={manualEntryOpen}
+        mode="create"
+        loading={isCreatingEntry}
+        onClose={() => setManualEntryOpen(false)}
+        onSubmit={handleCreateEntry}
+      />
+
       {/* Delete confirm */}
       <ConfirmModal
         isOpen={!!deleteEntryId}
@@ -325,45 +279,6 @@ export function ProjectDetailPage() {
         confirmLabel="Delete"
         loading={isDeleting}
       />
-
-      <Modal
-        isOpen={!!editingEntry}
-        onClose={() => setEditingEntry(null)}
-        title="Edit entry"
-        description="Update entry details."
-        size="lg"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setEditingEntry(null)} disabled={isUpdating}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEntry} loading={isUpdating}>
-              Save changes
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Label"
-            value={editLabel}
-            onChange={(event) => setEditLabel(event.target.value)}
-            placeholder="Entry label"
-          />
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700">Type</p>
-            <QrTypeSelector
-              value={editContentType}
-              onChange={handleEditTypeChange}
-            />
-          </div>
-          <QrContentForm
-            contentType={editContentType}
-            value={editContent}
-            onChange={setEditContent}
-          />
-        </div>
-      </Modal>
     </div>
   );
 }

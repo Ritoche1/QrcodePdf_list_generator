@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, Input, Modal } from '@/components/ui';
+import { Button, Card, ConfirmModal, Input } from '@/components/ui';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { QrTypeSelector } from '@/components/qr/QrTypeSelector';
 import { QrContentForm } from '@/components/qr/QrContentForm';
@@ -13,11 +13,14 @@ import { PdfLayoutOptionsForm } from '@/components/pdf/PdfLayoutOptions';
 import { PdfPreview } from '@/components/pdf/PdfPreview';
 import { EntryFiltersBar } from '@/components/entries/EntryFilters';
 import { EntryTable } from '@/components/entries/EntryTable';
+import { EntryEditorModal } from '@/components/entries/EntryEditorModal';
 import { useProject } from '@/hooks/useProjects';
-import { useEntries, useUpdateEntry } from '@/hooks/useEntries';
+import { useEntries, useCreateEntry, useDeleteEntry, useUpdateEntry } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
 import { pdfApi, downloadBlob } from '@/lib/api';
-import type { ContentType, QrContentData, QrDesignOptions, PdfLayoutOptions, EntryFilters, Entry } from '@/types';
+import type {
+  ContentType, CreateEntry, Entry, EntryFilters, PdfLayoutOptions, QrContentData, QrDesignOptions,
+} from '@/types';
 
 type WizardStep = 'select' | 'design' | 'layout' | 'download';
 
@@ -66,19 +69,6 @@ function normalizePdfFileName(value: string, fallback: string): string {
 
 function generatePdfId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createDefaultContent(type: ContentType): QrContentData {
-  switch (type) {
-    case 'url':
-      return { type: 'url', url: 'https://example.com' };
-    case 'text':
-      return { type: 'text', text: 'Sample text' };
-    case 'vcard':
-      return { type: 'vcard', first_name: 'John', last_name: 'Doe' };
-    case 'wifi':
-      return { type: 'wifi', ssid: 'MyWifi', encryption: 'WPA', hidden: false };
-  }
 }
 
 function StepIndicator({ currentStep }: { currentStep: WizardStep }) {
@@ -144,9 +134,8 @@ export function QrWizardPage() {
   const [generatedPdfs, setGeneratedPdfs] = useState<GeneratedPdfItem[]>([]);
   const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
-  const [editLabel, setEditLabel] = useState('');
-  const [editContentType, setEditContentType] = useState<ContentType>('text');
-  const [editContent, setEditContent] = useState<QrContentData>(createDefaultContent('text'));
+  const [isEntryEditorOpen, setIsEntryEditorOpen] = useState(false);
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const generatedPdfUrlsRef = useRef<string[]>([]);
   const hasCustomizedPdfNameRef = useRef(false);
   const lastProjectIdRef = useRef<string | null>(null);
@@ -157,10 +146,13 @@ export function QrWizardPage() {
 
   const { data: project, isLoading: projectLoading } = useProject(id!);
   const { data: entriesData, isLoading: entriesLoading } = useEntries(id!, filters);
-  const { mutateAsync: updateEntry, isPending: updatingEntry } = useUpdateEntry(id!);
+  const { mutateAsync: createEntry, isPending: isCreatingEntry } = useCreateEntry(id!);
+  const { mutateAsync: updateEntry, isPending: isUpdatingEntry } = useUpdateEntry(id!);
+  const { mutateAsync: deleteEntry, isPending: isDeletingEntry } = useDeleteEntry(id!);
 
   const entries = entriesData?.items ?? [];
   const total = entriesData?.total ?? 0;
+  const isSavingEntry = isCreatingEntry || isUpdatingEntry;
 
   const layoutWithEntries = useMemo(
     () => ({
@@ -226,33 +218,40 @@ export function QrWizardPage() {
     toast.success('PDF downloaded successfully');
   };
 
-  const handleOpenEditEntry = (entry: Entry) => {
-    setEditingEntry(entry);
-    setEditLabel(entry.label ?? '');
-    setEditContentType(entry.content_type);
-    setEditContent(entry.content);
-  };
+  const activePdfPreview =
+    generatedPdfs.find((item) => item.id === activePreviewId) ?? generatedPdfs[0] ?? null;
 
-  const handleSaveEntry = async () => {
-    if (!editingEntry) return;
+  const handleSaveEntry = async (payload: CreateEntry) => {
     try {
-      await updateEntry({
-        id: editingEntry.id,
-        payload: {
-          label: editLabel.trim() || undefined,
-          content_type: editContentType,
-          content: editContent,
-        },
-      });
-      toast.success('Entry updated successfully');
+      if (editingEntry) {
+        await updateEntry({ id: editingEntry.id, payload });
+        toast.success('Entry updated');
+      } else {
+        await createEntry(payload);
+        toast.success('Entry added');
+      }
+      setIsEntryEditorOpen(false);
       setEditingEntry(null);
     } catch {
-      toast.error('Failed to update entry');
+      toast.error(editingEntry ? 'Failed to update entry' : 'Failed to add entry');
     }
   };
 
-  const activePdfPreview =
-    generatedPdfs.find((item) => item.id === activePreviewId) ?? generatedPdfs[0] ?? null;
+  const handleDeleteEntry = async () => {
+    if (!deleteEntryId) return;
+    try {
+      await deleteEntry(deleteEntryId);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteEntryId);
+        return next;
+      });
+      toast.success('Entry deleted');
+      setDeleteEntryId(null);
+    } catch {
+      toast.error('Failed to delete entry');
+    }
+  };
 
   useEffect(() => {
     if (!project) return;
@@ -298,15 +297,28 @@ export function QrWizardPage() {
                   ? 'Select entries to include, or leave none to include all.'
                   : `${selectedIds.size} ${selectedIds.size === 1 ? 'entry' : 'entries'} selected`}
               </p>
-              {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={() => setSelectedIds(new Set())}
+                  leftIcon={<Plus className="w-4 h-4" />}
+                  onClick={() => {
+                    setEditingEntry(null);
+                    setIsEntryEditorOpen(true);
+                  }}
                 >
-                  Clear selection
+                  Add entry
                 </Button>
-              )}
+                {selectedIds.size > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    Clear selection
+                  </Button>
+                )}
+              </div>
             </div>
             <EntryFiltersBar filters={filters} onChange={setFilters} />
           </Card>
@@ -318,18 +330,22 @@ export function QrWizardPage() {
             onFiltersChange={setFilters}
             selectedIds={selectedIds}
             onSelectAll={handleSelectAll}
-            onSelectRow={(entryId) => {
-              setSelectedIds((prev) => {
-                const next = new Set(prev);
-                if (next.has(entryId)) next.delete(entryId);
-                else next.add(entryId);
-                return next;
-              });
-            }}
-            onEdit={handleOpenEditEntry}
-          />
-        </div>
-      )}
+              onSelectRow={(entryId) => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(entryId)) next.delete(entryId);
+                  else next.add(entryId);
+                  return next;
+                });
+              }}
+              onEdit={(entry) => {
+                setEditingEntry(entry);
+                setIsEntryEditorOpen(true);
+              }}
+              onDelete={(entry) => setDeleteEntryId(entry.id)}
+            />
+          </div>
+        )}
 
       {/* ─── Step: Design QR ─────────────────────────────────────────────── */}
       {step === 'design' && (
@@ -341,7 +357,13 @@ export function QrWizardPage() {
               <p className="text-sm font-medium text-gray-700 mb-3">Preview Content</p>
               <QrTypeSelector value={previewContentType} onChange={(t) => {
                 setPreviewContentType(t);
-                setPreviewContent(createDefaultContent(t));
+                const defaults: Record<ContentType, QrContentData> = {
+                  url: { type: 'url', url: 'https://example.com' },
+                  text: { type: 'text', text: 'Sample text' },
+                  vcard: { type: 'vcard', first_name: 'John', last_name: 'Doe' },
+                  wifi: { type: 'wifi', ssid: 'MyWifi', encryption: 'WPA', hidden: false },
+                };
+                setPreviewContent(defaults[t]);
               }} />
             </div>
           </Card>
@@ -544,47 +566,28 @@ export function QrWizardPage() {
         )}
       </div>
 
-      <Modal
-        isOpen={!!editingEntry}
-        onClose={() => setEditingEntry(null)}
-        title="Edit entry"
-        description="Update entry details before generating the PDF."
-        size="lg"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setEditingEntry(null)} disabled={updatingEntry}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEntry} loading={updatingEntry}>
-              Save changes
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Label"
-            value={editLabel}
-            onChange={(event) => setEditLabel(event.target.value)}
-            placeholder="Entry label"
-          />
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700">Type</p>
-            <QrTypeSelector
-              value={editContentType}
-              onChange={(type) => {
-                setEditContentType(type);
-                setEditContent(createDefaultContent(type));
-              }}
-            />
-          </div>
-          <QrContentForm
-            contentType={editContentType}
-            value={editContent}
-            onChange={setEditContent}
-          />
-        </div>
-      </Modal>
+      <EntryEditorModal
+        isOpen={isEntryEditorOpen}
+        mode={editingEntry ? 'edit' : 'create'}
+        initialEntry={editingEntry}
+        loading={isSavingEntry}
+        onClose={() => {
+          if (isSavingEntry) return;
+          setIsEntryEditorOpen(false);
+          setEditingEntry(null);
+        }}
+        onSubmit={handleSaveEntry}
+      />
+
+      <ConfirmModal
+        isOpen={!!deleteEntryId}
+        onClose={() => setDeleteEntryId(null)}
+        onConfirm={handleDeleteEntry}
+        title="Delete entry"
+        message="This entry will be permanently deleted."
+        confirmLabel="Delete"
+        loading={isDeletingEntry}
+      />
     </div>
   );
 }

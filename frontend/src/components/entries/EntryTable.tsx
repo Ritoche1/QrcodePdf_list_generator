@@ -17,6 +17,17 @@ function getContentSummary(entry: Entry): string {
   }
 }
 
+function getQrThumbnailUrl(row: Entry): string | null {
+  if (!row.qr_image_url) return null;
+  if (row.qr_image_url.startsWith('http://') || row.qr_image_url.startsWith('https://') || row.qr_image_url.startsWith('data:')) {
+    return row.qr_image_url;
+  }
+  const basePath = row.qr_image_url.startsWith('/') ? row.qr_image_url : `/files/${row.qr_image_url}`;
+  const cacheKey = encodeURIComponent(row.qr_generated_at ?? row.updated_at);
+  const separator = basePath.includes('?') ? '&' : '?';
+  return `${basePath}${separator}v=${cacheKey}`;
+}
+
 interface EntryTableProps {
   entries: Entry[];
   total: number;
@@ -87,27 +98,40 @@ export function EntryTable({
     {
       key: 'qr_generated',
       header: 'QR',
-      accessor: (row) => (
-        <span className={clsx(
-          'inline-flex items-center gap-1 text-xs font-medium',
-          row.qr_status === 'generated'
-            ? 'text-green-600'
-            : row.qr_status === 'outdated'
-            ? 'text-amber-600'
-            : row.qr_status === 'error'
-            ? 'text-red-600'
-            : 'text-gray-400'
-        )}>
-          <QrCode className="w-3.5 h-3.5" />
-          {row.qr_status === 'generated'
-            ? 'Generated'
-            : row.qr_status === 'outdated'
-            ? 'Outdated'
-            : row.qr_status === 'error'
-            ? 'Error'
-            : 'Not generated'}
-        </span>
-      ),
+      accessor: (row) => {
+        const thumbnailUrl = getQrThumbnailUrl(row);
+        return (
+          <div className="flex items-center gap-2">
+            {thumbnailUrl && (
+              <img
+                src={thumbnailUrl}
+                alt={row.label ? `QR thumbnail for ${row.label}` : 'QR code thumbnail'}
+                className="w-8 h-8 rounded border border-gray-200 object-contain bg-white"
+                loading="lazy"
+              />
+            )}
+            <span className={clsx(
+              'inline-flex items-center gap-1 text-xs font-medium',
+              row.qr_status === 'generated'
+                ? 'text-green-600'
+                : row.qr_status === 'outdated'
+                ? 'text-amber-600'
+                : row.qr_status === 'error'
+                ? 'text-red-600'
+                : 'text-gray-400'
+            )}>
+              <QrCode className="w-3.5 h-3.5" />
+              {row.qr_status === 'generated'
+                ? 'Generated'
+                : row.qr_status === 'outdated'
+                ? 'Outdated'
+                : row.qr_status === 'error'
+                ? 'Error'
+                : 'Not generated'}
+            </span>
+          </div>
+        );
+      },
       width: '130px',
     },
     {

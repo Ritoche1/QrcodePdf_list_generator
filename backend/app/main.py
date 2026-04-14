@@ -8,10 +8,12 @@ from app.core.config import settings
 from app.core.database import create_all_tables
 
 
+# Ensure directories exist before the app starts to allow mounting StaticFiles directly
+settings.ensure_dirs()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    settings.ensure_dirs()
     await create_all_tables()
     yield
     # Shutdown (nothing needed for SQLite)
@@ -38,14 +40,8 @@ from app.api.router import api_router  # noqa: E402
 
 app.include_router(api_router, prefix="/api/v1")
 
-# Serve generated files statically (optional convenience)
-# Mount only after dirs are ensured in lifespan — use a startup event trick
-@app.on_event("startup")
-async def mount_static():
-    try:
-        app.mount("/files", StaticFiles(directory=str(settings.files_dir)), name="files")
-    except Exception:
-        pass  # Directory might not exist yet on first run — lifespan handles it
+# Serve generated files statically
+app.mount("/files", StaticFiles(directory=str(settings.files_dir)), name="files")
 
 
 @app.get("/health")

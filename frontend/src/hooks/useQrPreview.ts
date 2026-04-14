@@ -10,6 +10,16 @@ export function useQrPreview() {
 
 export function useGenerateQr() {
   return useMutation({
-    mutationFn: (entryId: string) => qrApi.generate(entryId),
+    mutationFn: ({
+      entryId,
+      payload,
+    }: {
+      entryId: string;
+      payload?: {
+        fg_color?: string;
+        bg_color?: string;
+        error_correction?: 'L' | 'M' | 'Q' | 'H';
+      };
+    }) => qrApi.generate(entryId, payload),
   });
 }

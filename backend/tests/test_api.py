@@ -208,6 +208,40 @@ async def test_qr_generation_cache_and_outdated_state(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_qr_generation_with_color_override_bypasses_cache(client: AsyncClient):
+    from app.services.qr_service import load_qr_image
+
+    project = await client.post("/api/v1/projects", json={"name": "QR color override test"})
+    assert project.status_code == 201
+    pid = project.json()["id"]
+
+    created = await client.post(
+        f"/api/v1/projects/{pid}/entries",
+        json={
+            "content_type": "text",
+            "content_data": {"text": "Color me"},
+            "label": "Color Entry",
+        },
+    )
+    assert created.status_code == 201
+    entry_id = created.json()["id"]
+
+    first = await client.post(f"/api/v1/qr/generate/{entry_id}", json={"fg_color": "#111111"})
+    assert first.status_code == 200
+    assert first.json()["regenerated"] is True
+    first_bytes = load_qr_image(first.json()["qr_image_path"])
+    assert first_bytes is not None
+
+    second = await client.post(f"/api/v1/qr/generate/{entry_id}", json={"fg_color": "#22aa22"})
+    assert second.status_code == 200
+    assert second.json()["regenerated"] is True
+    second_bytes = load_qr_image(second.json()["qr_image_path"])
+    assert second_bytes is not None
+
+    assert first_bytes != second_bytes
+
+
+@pytest.mark.asyncio
 async def test_qr_bulk_generation(client: AsyncClient):
     project = await client.post("/api/v1/projects", json={"name": "QR bulk test"})
     assert project.status_code == 201

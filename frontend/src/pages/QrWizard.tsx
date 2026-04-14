@@ -394,10 +394,10 @@ export function QrWizardPage() {
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/55 backdrop-blur-sm p-4">
                 <div className="w-full max-w-xl rounded-2xl border border-indigo-200/70 bg-white/95 shadow-lg p-4 sm:p-5">
                   <p className="text-sm font-semibold text-gray-800 text-center">
-                    Choose PDF QR mode first
+                    Choose a PDF QR mode
                   </p>
                   <p className="mt-1 text-xs text-gray-500 text-center">
-                    Select left or right to continue editing QR options.
+                    Select how QR codes should be rendered in your PDF.
                   </p>
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
@@ -407,7 +407,8 @@ export function QrWizardPage() {
                     >
                       <p className="text-sm font-semibold text-gray-800">Per-entry cached</p>
                       <p className="mt-1 text-xs text-gray-500">
-                        Use each entry&apos;s current cached QR, fallback to standard QR if unavailable.
+                        Use each entry's current cached QR. If cache is missing or outdated, regenerate
+                        with the standard dark-on-white QR style.
                       </p>
                     </button>
                     <button

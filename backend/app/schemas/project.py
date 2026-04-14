@@ -2,22 +2,28 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.core.qr_defaults import (
+    STANDARD_QR_BACKGROUND_COLOR,
+    STANDARD_QR_ERROR_CORRECTION,
+    STANDARD_QR_FOREGROUND_COLOR,
+)
+
 
 class ProjectBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Project name")
     description: str | None = Field(None, description="Optional project description")
     default_qr_foreground_color: str = Field(
-        "#000000",
+        STANDARD_QR_FOREGROUND_COLOR,
         pattern=r"^#[0-9A-Fa-f]{6}$",
         description="Default QR foreground color (hex)",
     )
     default_qr_background_color: str = Field(
-        "#ffffff",
+        STANDARD_QR_BACKGROUND_COLOR,
         pattern=r"^#[0-9A-Fa-f]{6}$",
         description="Default QR background color (hex)",
     )
     default_qr_error_correction: str = Field(
-        "M",
+        STANDARD_QR_ERROR_CORRECTION,
         pattern=r"^[LMQH]$",
         description="Default QR error correction level",
     )

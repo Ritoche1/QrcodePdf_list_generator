@@ -2,15 +2,17 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.core.qr_defaults import STANDARD_QR_ERROR_CORRECTION
+
 
 class QRPreviewRequest(BaseModel):
     content_type: str = Field(..., description="Type: url, text, vcard, wifi")
     content_data: dict[str, Any] = Field(..., description="Content data dict")
     # Design options
-    fg_color: str = Field("#000000", description="Foreground color (hex)")
-    bg_color: str = Field("#ffffff", description="Background color (hex)")
-    error_correction: str = Field(
-        "M",
+    fg_color: str | None = Field(None, description="Foreground color (hex)")
+    bg_color: str | None = Field(None, description="Background color (hex)")
+    error_correction: str | None = Field(
+        STANDARD_QR_ERROR_CORRECTION,
         description="Error correction level: L, M, Q, H",
         pattern="^[LMQH]$",
     )
@@ -19,10 +21,10 @@ class QRPreviewRequest(BaseModel):
 
 
 class QRGenerateRequest(BaseModel):
-    fg_color: str = Field("#000000", description="Foreground color (hex)")
-    bg_color: str = Field("#ffffff", description="Background color (hex)")
-    error_correction: str = Field(
-        "M",
+    fg_color: str | None = Field(None, description="Foreground color (hex)")
+    bg_color: str | None = Field(None, description="Background color (hex)")
+    error_correction: str | None = Field(
+        None,
         description="Error correction level: L, M, Q, H",
         pattern="^[LMQH]$",
     )

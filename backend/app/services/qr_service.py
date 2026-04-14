@@ -12,6 +12,11 @@ from PIL import Image
 from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_L, ERROR_CORRECT_M, ERROR_CORRECT_Q
 
 from app.core.config import settings
+from app.core.qr_defaults import (
+    STANDARD_QR_BACKGROUND_COLOR,
+    STANDARD_QR_ERROR_CORRECTION,
+    STANDARD_QR_FOREGROUND_COLOR,
+)
 
 ERROR_CORRECTION_MAP = {
     "L": ERROR_CORRECT_L,
@@ -122,9 +127,9 @@ def _build_wifi(data: dict[str, Any]) -> str:
 
 def generate_qr_png(
     content: str,
-    fg_color: str = "#000000",
-    bg_color: str = "#ffffff",
-    error_correction: str = "M",
+    fg_color: str = STANDARD_QR_FOREGROUND_COLOR,
+    bg_color: str = STANDARD_QR_BACKGROUND_COLOR,
+    error_correction: str = STANDARD_QR_ERROR_CORRECTION,
     box_size: int = 10,
     border: int = 4,
 ) -> tuple[bytes, list[str]]:

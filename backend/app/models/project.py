@@ -4,6 +4,11 @@ from sqlalchemy import DateTime, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.qr_defaults import (
+    STANDARD_QR_BACKGROUND_COLOR,
+    STANDARD_QR_ERROR_CORRECTION,
+    STANDARD_QR_FOREGROUND_COLOR,
+)
 
 
 class Project(Base):
@@ -13,13 +18,13 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     default_qr_foreground_color: Mapped[str] = mapped_column(
-        String(7), nullable=False, default="#000000"
+        String(7), nullable=False, default=STANDARD_QR_FOREGROUND_COLOR
     )
     default_qr_background_color: Mapped[str] = mapped_column(
-        String(7), nullable=False, default="#ffffff"
+        String(7), nullable=False, default=STANDARD_QR_BACKGROUND_COLOR
     )
     default_qr_error_correction: Mapped[str] = mapped_column(
-        String(1), nullable=False, default="M"
+        String(1), nullable=False, default=STANDARD_QR_ERROR_CORRECTION
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

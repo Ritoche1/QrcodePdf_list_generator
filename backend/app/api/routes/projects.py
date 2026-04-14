@@ -6,6 +6,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.qr_defaults import (
+    STANDARD_QR_BACKGROUND_COLOR,
+    STANDARD_QR_ERROR_CORRECTION,
+    STANDARD_QR_FOREGROUND_COLOR,
+)
 from app.models.entry import Entry, EntryStatus
 from app.models.project import Project
 from app.schemas.project import (
@@ -141,14 +146,16 @@ async def update_project(
         project.description = payload.description
     if "default_qr_foreground_color" in payload.model_fields_set:
         project.default_qr_foreground_color = (
-            payload.default_qr_foreground_color or "#000000"
+            payload.default_qr_foreground_color or STANDARD_QR_FOREGROUND_COLOR
         )
     if "default_qr_background_color" in payload.model_fields_set:
         project.default_qr_background_color = (
-            payload.default_qr_background_color or "#ffffff"
+            payload.default_qr_background_color or STANDARD_QR_BACKGROUND_COLOR
         )
     if "default_qr_error_correction" in payload.model_fields_set:
-        project.default_qr_error_correction = payload.default_qr_error_correction or "M"
+        project.default_qr_error_correction = (
+            payload.default_qr_error_correction or STANDARD_QR_ERROR_CORRECTION
+        )
 
     await session.flush()
     await session.refresh(project)

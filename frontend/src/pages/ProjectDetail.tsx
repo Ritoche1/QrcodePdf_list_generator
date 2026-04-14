@@ -17,6 +17,11 @@ import { useProject, projectKeys, useUpdateProject } from '@/hooks/useProjects';
 import { useEntries, useDeleteEntry, useBulkDelete, useBulkStatus, useCreateEntry, entryKeys } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
 import { importExportApi, downloadBlob } from '@/lib/api';
+import {
+  STANDARD_QR_BACKGROUND_COLOR,
+  STANDARD_QR_ERROR_CORRECTION,
+  STANDARD_QR_FOREGROUND_COLOR,
+} from '@/lib/qrDefaults';
 import type { CreateEntry } from '@/types';
 import type { EntryFilters } from '@/types';
 import type { ErrorCorrectionLevel } from '@/types';
@@ -55,9 +60,9 @@ export function ProjectDetailPage() {
   const [settingsForm, setSettingsForm] = useState<ProjectSettingsForm>({
     name: '',
     description: '',
-    default_qr_foreground_color: '#000000',
-    default_qr_background_color: '#ffffff',
-    default_qr_error_correction: 'M',
+    default_qr_foreground_color: STANDARD_QR_FOREGROUND_COLOR,
+    default_qr_background_color: STANDARD_QR_BACKGROUND_COLOR,
+    default_qr_error_correction: STANDARD_QR_ERROR_CORRECTION,
   });
 
   const { data: project, isLoading: projectLoading } = useProject(id!);

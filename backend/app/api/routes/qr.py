@@ -8,7 +8,13 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.qr_defaults import (
+    STANDARD_QR_BACKGROUND_COLOR,
+    STANDARD_QR_ERROR_CORRECTION,
+    STANDARD_QR_FOREGROUND_COLOR,
+)
 from app.models.entry import Entry
+from app.models.project import Project
 from app.schemas.qr import QRGenerateRequest, QRGenerateResponse, QRPreviewRequest
 from app.services.qr_service import (
     build_qr_content,
@@ -35,9 +41,9 @@ async def qr_preview(payload: QRPreviewRequest) -> Response:
 
     image_bytes, warnings = generate_qr_png(
         content,
-        fg_color=payload.fg_color,
-        bg_color=payload.bg_color,
-        error_correction=payload.error_correction,
+        fg_color=payload.fg_color or STANDARD_QR_FOREGROUND_COLOR,
+        bg_color=payload.bg_color or STANDARD_QR_BACKGROUND_COLOR,
+        error_correction=payload.error_correction or STANDARD_QR_ERROR_CORRECTION,
         box_size=payload.box_size,
         border=payload.border,
     )
@@ -66,6 +72,9 @@ async def qr_generate(
     entry = await session.get(Entry, entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
+    project = await session.get(Project, entry.project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     content_data = entry.content_data
     if isinstance(content_data, str):
@@ -78,9 +87,9 @@ async def qr_generate(
 
     image_bytes, warnings = generate_qr_png(
         content,
-        fg_color=payload.fg_color,
-        bg_color=payload.bg_color,
-        error_correction=payload.error_correction,
+        fg_color=payload.fg_color or project.default_qr_foreground_color,
+        bg_color=payload.bg_color or project.default_qr_background_color,
+        error_correction=payload.error_correction or project.default_qr_error_correction,
         box_size=payload.box_size,
         border=payload.border,
     )

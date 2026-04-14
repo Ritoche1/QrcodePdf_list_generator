@@ -13,6 +13,11 @@ from fpdf import FPDF
 from PIL import Image
 
 from app.core.config import settings
+from app.core.qr_defaults import (
+    STANDARD_QR_BACKGROUND_COLOR,
+    STANDARD_QR_ERROR_CORRECTION,
+    STANDARD_QR_FOREGROUND_COLOR,
+)
 from app.services.qr_service import build_qr_content, generate_qr_png
 
 # A4 and Letter dimensions in mm
@@ -50,9 +55,9 @@ class QRPDFGenerator:
         self.show_labels = bool(layout.get("show_labels", True))
         self.show_serial = bool(layout.get("show_serial", False))
         self.label_font_size = float(layout.get("label_font_size", 8))
-        self.fg_color = layout.get("fg_color", "#000000")
-        self.bg_color = layout.get("bg_color", "#ffffff")
-        self.error_correction = layout.get("error_correction", "M")
+        self.fg_color = layout.get("fg_color", STANDARD_QR_FOREGROUND_COLOR)
+        self.bg_color = layout.get("bg_color", STANDARD_QR_BACKGROUND_COLOR)
+        self.error_correction = layout.get("error_correction", STANDARD_QR_ERROR_CORRECTION)
 
         # Determine page dimensions
         w, h = PAGE_SIZES.get(self.page_size, PAGE_SIZES["A4"])
@@ -233,9 +238,9 @@ def generate_export_zip(
     project_id: int,
     entries: list[dict[str, Any]],
     fmt: str = "png",
-    fg_color: str = "#000000",
-    bg_color: str = "#ffffff",
-    error_correction: str = "M",
+    fg_color: str = STANDARD_QR_FOREGROUND_COLOR,
+    bg_color: str = STANDARD_QR_BACKGROUND_COLOR,
+    error_correction: str = STANDARD_QR_ERROR_CORRECTION,
     box_size: int = 10,
     border: int = 4,
 ) -> bytes:

@@ -15,6 +15,11 @@ import type {
   QrDesignOptions,
   ProjectPdfFile,
 } from '@/types';
+import {
+  STANDARD_QR_BACKGROUND_COLOR,
+  STANDARD_QR_ERROR_CORRECTION,
+  STANDARD_QR_FOREGROUND_COLOR,
+} from '@/lib/qrDefaults';
 
 export const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || '/api/v1';
 
@@ -216,9 +221,9 @@ function mapPdfLayoutRequest(
       show_labels: options.show_labels,
       show_serial: false,
       label_font_size: options.font_size ?? 8,
-      fg_color: design?.foreground_color ?? '#000000',
-      bg_color: design?.background_color ?? '#ffffff',
-      error_correction: design?.error_correction ?? 'M',
+      fg_color: design?.foreground_color ?? STANDARD_QR_FOREGROUND_COLOR,
+      bg_color: design?.background_color ?? STANDARD_QR_BACKGROUND_COLOR,
+      error_correction: design?.error_correction ?? STANDARD_QR_ERROR_CORRECTION,
     },
     entry_ids: options.entry_ids?.map((entryId) => Number(entryId)).filter((entryId) => !Number.isNaN(entryId)),
   };
@@ -231,12 +236,12 @@ function normalizeProject(payload: Partial<Project> & { id?: string | number }):
     id: String(payload.id ?? ''),
     name: payload.name ?? '',
     description: payload.description ?? undefined,
-    default_qr_foreground_color: payload.default_qr_foreground_color ?? '#000000',
-    default_qr_background_color: payload.default_qr_background_color ?? '#ffffff',
+    default_qr_foreground_color: payload.default_qr_foreground_color ?? STANDARD_QR_FOREGROUND_COLOR,
+    default_qr_background_color: payload.default_qr_background_color ?? STANDARD_QR_BACKGROUND_COLOR,
     default_qr_error_correction:
       errorCorrection === 'L' || errorCorrection === 'M' || errorCorrection === 'Q' || errorCorrection === 'H'
         ? errorCorrection
-        : 'M',
+        : STANDARD_QR_ERROR_CORRECTION,
     entry_count: payload.entry_count ?? 0,
     generated_count: payload.generated_count ?? 0,
     created_at: createdAt,
@@ -388,13 +393,7 @@ export const qrApi = {
   },
 
   generate: async (entryId: string): Promise<Entry> => {
-    const { data } = await apiClient.post<Entry>(`/qr/generate/${entryId}`, {
-      fg_color: '#000000',
-      bg_color: '#ffffff',
-      error_correction: 'M',
-      box_size: 10,
-      border: 4,
-    });
+    const { data } = await apiClient.post<Entry>(`/qr/generate/${entryId}`, {});
     return normalizeEntry(data);
   },
 };

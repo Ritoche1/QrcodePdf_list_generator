@@ -14,6 +14,12 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from app.core.qr_defaults import (
+    STANDARD_QR_BACKGROUND_COLOR,
+    STANDARD_QR_ERROR_CORRECTION,
+    STANDARD_QR_FOREGROUND_COLOR,
+)
+
 # Point to an isolated temp data dir per test run
 TEST_DATA_DIR = tempfile.mkdtemp(prefix="qrtest_pytest_")
 os.environ.setdefault("DATA_DIR", TEST_DATA_DIR)
@@ -54,9 +60,9 @@ async def test_project_crud(client: AsyncClient):
     assert r.status_code == 201
     created = r.json()
     pid = created["id"]
-    assert created["default_qr_foreground_color"] == "#000000"
-    assert created["default_qr_background_color"] == "#ffffff"
-    assert created["default_qr_error_correction"] == "M"
+    assert created["default_qr_foreground_color"] == STANDARD_QR_FOREGROUND_COLOR
+    assert created["default_qr_background_color"] == STANDARD_QR_BACKGROUND_COLOR
+    assert created["default_qr_error_correction"] == STANDARD_QR_ERROR_CORRECTION
 
     # Read
     r = await client.get(f"/api/v1/projects/{pid}")
@@ -93,9 +99,9 @@ async def test_project_crud(client: AsyncClient):
     )
     assert r.status_code == 200
     reset = r.json()
-    assert reset["default_qr_foreground_color"] == "#000000"
-    assert reset["default_qr_background_color"] == "#ffffff"
-    assert reset["default_qr_error_correction"] == "M"
+    assert reset["default_qr_foreground_color"] == STANDARD_QR_FOREGROUND_COLOR
+    assert reset["default_qr_background_color"] == STANDARD_QR_BACKGROUND_COLOR
+    assert reset["default_qr_error_correction"] == STANDARD_QR_ERROR_CORRECTION
 
     # Delete
     r = await client.delete(f"/api/v1/projects/{pid}")
@@ -252,3 +258,94 @@ async def test_pdf_generation_does_not_modify_entry_content_type(client: AsyncCl
     after_types = {item["id"]: item["content_type"] for item in after.json()["items"]}
 
     assert after_types == before_types
+
+
+@pytest.mark.asyncio
+async def test_qr_generate_uses_project_default_design_when_not_provided(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    project_payload = {
+        "name": "QR Default Design Test",
+        "default_qr_foreground_color": "#4338ca",
+        "default_qr_background_color": "#f8fafc",
+        "default_qr_error_correction": "H",
+    }
+    project_resp = await client.post("/api/v1/projects", json=project_payload)
+    assert project_resp.status_code == 201
+    pid = project_resp.json()["id"]
+
+    entry_resp = await client.post(
+        f"/api/v1/projects/{pid}/entries",
+        json={
+            "content_type": "text",
+            "content_data": {"text": "Default design"},
+        },
+    )
+    assert entry_resp.status_code == 201
+    eid = entry_resp.json()["id"]
+
+    captured: dict[str, str] = {}
+
+    def fake_generate_qr_png(content: str, fg_color: str, bg_color: str, error_correction: str, box_size: int, border: int):
+        captured["fg_color"] = fg_color
+        captured["bg_color"] = bg_color
+        captured["error_correction"] = error_correction
+        return b"fake-png", []
+
+    monkeypatch.setattr("app.api.routes.qr.generate_qr_png", fake_generate_qr_png)
+    monkeypatch.setattr("app.api.routes.qr.save_qr_image", lambda _entry_id, _image_bytes: "qr/test.png")
+
+    generated = await client.post(f"/api/v1/qr/generate/{eid}", json={})
+    assert generated.status_code == 200
+    assert captured == {
+        "fg_color": "#4338ca",
+        "bg_color": "#f8fafc",
+        "error_correction": "H",
+    }
+
+
+@pytest.mark.asyncio
+async def test_pdf_generation_uses_project_default_design_when_not_provided(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    project_payload = {
+        "name": "PDF Default Design Test",
+        "default_qr_foreground_color": "#0f172a",
+        "default_qr_background_color": "#f1f5f9",
+        "default_qr_error_correction": "Q",
+    }
+    project_resp = await client.post("/api/v1/projects", json=project_payload)
+    assert project_resp.status_code == 201
+    pid = project_resp.json()["id"]
+
+    entry_resp = await client.post(
+        f"/api/v1/projects/{pid}/entries",
+        json={
+            "content_type": "text",
+            "content_data": {"text": "PDF default design"},
+        },
+    )
+    assert entry_resp.status_code == 201
+
+    captured_layout: dict[str, str] = {}
+
+    class FakePDFGenerator:
+        def __init__(self, layout):
+            captured_layout.update(layout)
+
+        def generate_pdf(self, _entries):
+            return b"%PDF-1.4\n", 1
+
+    monkeypatch.setattr("app.api.routes.pdf.QRPDFGenerator", FakePDFGenerator)
+    monkeypatch.setattr("app.api.routes.pdf.save_pdf", lambda _project_id, _pdf_bytes: None)
+
+    generated = await client.post(
+        f"/api/v1/projects/{pid}/pdf",
+        json={"layout": {"columns": 1, "rows": 1}},
+    )
+    assert generated.status_code == 200
+    assert captured_layout["fg_color"] == "#0f172a"
+    assert captured_layout["bg_color"] == "#f1f5f9"
+    assert captured_layout["error_correction"] == "Q"

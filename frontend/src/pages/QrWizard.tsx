@@ -18,6 +18,11 @@ import { useProject } from '@/hooks/useProjects';
 import { useEntries, useCreateEntry, useDeleteEntry, useUpdateEntry } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
 import { pdfApi, downloadBlob } from '@/lib/api';
+import {
+  STANDARD_QR_BACKGROUND_COLOR,
+  STANDARD_QR_ERROR_CORRECTION,
+  STANDARD_QR_FOREGROUND_COLOR,
+} from '@/lib/qrDefaults';
 import type {
   ContentType, CreateEntry, Entry, EntryFilters, PdfLayoutOptions, QrContentData, QrDesignOptions,
 } from '@/types';
@@ -32,9 +37,9 @@ const WIZARD_STEPS: { key: WizardStep; label: string; description: string }[] = 
 ];
 
 const defaultDesign: QrDesignOptions = {
-  foreground_color: '#000000',
-  background_color: '#ffffff',
-  error_correction: 'M',
+  foreground_color: STANDARD_QR_FOREGROUND_COLOR,
+  background_color: STANDARD_QR_BACKGROUND_COLOR,
+  error_correction: STANDARD_QR_ERROR_CORRECTION,
   size: 200,
 };
 

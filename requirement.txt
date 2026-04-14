@@ -4,3 +4,4 @@ fpdf
 pandas
 flask
 openpyxl
+streamlit

@@ -90,3 +90,13 @@ export function useBulkTags(projectId: string) {
     },
   });
 }
+
+export function useBulkDelete(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => entriesApi.bulkDelete(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: entryKeys.all(projectId) });
+    },
+  });
+}

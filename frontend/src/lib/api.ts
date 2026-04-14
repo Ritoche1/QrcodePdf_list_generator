@@ -362,6 +362,11 @@ export const entriesApi = {
   ): Promise<void> => {
     await apiClient.patch('/entries/bulk-tags', { ids, tags, action });
   },
+
+  bulkDelete: async (ids: string[]): Promise<{ deleted: number }> => {
+    const { data } = await apiClient.post<{ deleted: number }>('/entries/bulk-delete', { entry_ids: ids });
+    return data;
+  },
 };
 
 // ─── QR ──────────────────────────────────────────────────────────────────────

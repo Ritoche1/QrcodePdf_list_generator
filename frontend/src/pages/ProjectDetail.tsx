@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Download, FileDown, QrCode
+  Plus, Download, FileDown, QrCode, RefreshCw
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
 import { Button, Card, Modal, ConfirmModal } from '@/components/ui';
@@ -14,7 +14,7 @@ import { BulkActions } from '@/components/entries/BulkActions';
 import { EntryEditorModal } from '@/components/entries/EntryEditorModal';
 import { ImportModal } from '@/components/entries/ImportModal';
 import { useProject, projectKeys } from '@/hooks/useProjects';
-import { useEntries, useDeleteEntry, useBulkStatus, useCreateEntry, entryKeys } from '@/hooks/useEntries';
+import { useEntries, useDeleteEntry, useBulkDelete, useBulkStatus, useCreateEntry, entryKeys } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
 import { importExportApi, downloadBlob } from '@/lib/api';
 import type { CreateEntry } from '@/types';
@@ -41,12 +41,13 @@ export function ProjectDetailPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [manualEntryOpen, setManualEntryOpen] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
 
   const { data: project, isLoading: projectLoading } = useProject(id!);
   const { data: entriesData, isLoading: entriesLoading } = useEntries(id!, filters);
   const { mutateAsync: deleteEntry, isPending: isDeleting } = useDeleteEntry(id!);
-  const { mutateAsync: bulkStatus, isPending: isBulkLoading } = useBulkStatus(id!);
+  const { mutateAsync: bulkStatus, isPending: isBulkStatusLoading } = useBulkStatus(id!);
+  const { mutateAsync: bulkDelete, isPending: isBulkDeleting } = useBulkDelete(id!);
   const { mutateAsync: createEntry, isPending: isCreatingEntry } = useCreateEntry(id!);
 
   const entries = entriesData?.items ?? [];
@@ -79,6 +80,17 @@ export function ProjectDetailPage() {
       setSelectedIds(new Set());
     } catch {
       toast.error('Failed to update status');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      const result = await bulkDelete(Array.from(selectedIds));
+      toast.success(`Deleted ${result.deleted} entries`);
+      setSelectedIds(new Set());
+      setBulkDeleteConfirmOpen(false);
+    } catch {
+      toast.error('Failed to delete entries');
     }
   };
 
@@ -130,6 +142,17 @@ export function ProjectDetailPage() {
         ]}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<RefreshCw className={`w-4 h-4 ${entriesLoading || projectLoading ? 'animate-spin' : ''}`} />}
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: projectKeys.detail(id!) });
+                queryClient.invalidateQueries({ queryKey: entryKeys.all(id!) });
+              }}
+            >
+              Refresh
+            </Button>
             <div className="relative group">
               <Button
                 variant="outline"
@@ -239,11 +262,8 @@ export function ProjectDetailPage() {
         selectedCount={selectedIds.size}
         onClearSelection={() => setSelectedIds(new Set())}
         onChangeStatus={handleBulkStatus}
-        onDelete={() => {
-          /* handle bulk delete */
-          toast.info(`Delete ${selectedIds.size} entries — not yet implemented`);
-        }}
-        loading={isBulkLoading}
+        onDelete={() => setBulkDeleteConfirmOpen(true)}
+        loading={isBulkStatusLoading || isBulkDeleting}
       />
 
       {/* Import modal */}
@@ -278,6 +298,17 @@ export function ProjectDetailPage() {
         message="This entry and its QR code will be permanently deleted."
         confirmLabel="Delete"
         loading={isDeleting}
+      />
+
+      {/* Bulk Delete confirm */}
+      <ConfirmModal
+        isOpen={bulkDeleteConfirmOpen}
+        onClose={() => setBulkDeleteConfirmOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete Multiple Entries"
+        message={`Are you sure you want to delete ${selectedIds.size} entries? This action cannot be undone.`}
+        confirmLabel="Delete All"
+        loading={isBulkDeleting}
       />
     </div>
   );

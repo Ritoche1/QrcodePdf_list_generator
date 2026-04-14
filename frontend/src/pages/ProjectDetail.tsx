@@ -58,6 +58,7 @@ export function ProjectDetailPage() {
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [qrPreviewEntry, setQrPreviewEntry] = useState<Entry | null>(null);
+  const [qrPreviewBlob, setQrPreviewBlob] = useState<Blob | null>(null);
   const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null);
   const [qrPreviewLoading, setQrPreviewLoading] = useState(false);
   const [settingsForm, setSettingsForm] = useState<ProjectSettingsForm>({
@@ -171,12 +172,13 @@ export function ProjectDetailPage() {
   };
 
   const resolveEntryPngName = (entry: Entry): string => {
-    const baseName = (entry.label || `entry-${entry.id}`)
+    const fallbackName = `entry-${entry.id}`;
+    const baseName = (entry.label || fallbackName)
       .trim()
       .replace(/[^a-zA-Z0-9-_ ]+/g, '_')
       .replace(/\s+/g, '-')
       .slice(0, 60);
-    return `${baseName || `entry-${entry.id}`}.png`;
+    return `${baseName || fallbackName}.png`;
   };
 
   const handlePreviewEntryQr = async (entry: Entry) => {
@@ -187,6 +189,7 @@ export function ProjectDetailPage() {
         content: entry.content,
         design: defaultQrDesign,
       });
+      setQrPreviewBlob(blob);
       const nextUrl = URL.createObjectURL(blob);
       setQrPreviewUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
@@ -195,6 +198,7 @@ export function ProjectDetailPage() {
     } catch {
       toast.error('Failed to generate QR preview');
       setQrPreviewEntry(null);
+      setQrPreviewBlob(null);
       setQrPreviewUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
@@ -434,6 +438,7 @@ export function ProjectDetailPage() {
         isOpen={Boolean(qrPreviewEntry)}
         onClose={() => {
           setQrPreviewEntry(null);
+          setQrPreviewBlob(null);
           setQrPreviewUrl((prev) => {
             if (prev) URL.revokeObjectURL(prev);
             return null;
@@ -448,6 +453,7 @@ export function ProjectDetailPage() {
               variant="outline"
               onClick={() => {
                 setQrPreviewEntry(null);
+                setQrPreviewBlob(null);
                 setQrPreviewUrl((prev) => {
                   if (prev) URL.revokeObjectURL(prev);
                   return null;
@@ -457,13 +463,10 @@ export function ProjectDetailPage() {
               Close
             </Button>
             <Button
-              disabled={!qrPreviewEntry || !qrPreviewUrl}
+              disabled={!qrPreviewEntry || !qrPreviewBlob}
               onClick={() => {
-                if (!qrPreviewEntry || !qrPreviewUrl) return;
-                fetch(qrPreviewUrl)
-                  .then((response) => response.blob())
-                  .then((blob) => downloadBlob(blob, resolveEntryPngName(qrPreviewEntry)))
-                  .catch(() => toast.error('Failed to download QR PNG'));
+                if (!qrPreviewEntry || !qrPreviewBlob) return;
+                downloadBlob(qrPreviewBlob, resolveEntryPngName(qrPreviewEntry));
               }}
             >
               Download PNG

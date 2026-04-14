@@ -35,6 +35,8 @@ from app.services.qr_service import (
 
 router = APIRouter(prefix="/qr", tags=["qr"])
 logger = logging.getLogger(__name__)
+DEFAULT_QR_BOX_SIZE = 10
+DEFAULT_QR_BORDER = 4
 
 
 @router.post("/preview")
@@ -104,12 +106,11 @@ async def qr_generate(
         payload.fg_color is not None
         or payload.bg_color is not None
         or payload.error_correction is not None
-        or payload.box_size != 10
-        or payload.border != 4
+        or payload.box_size != DEFAULT_QR_BOX_SIZE
+        or payload.border != DEFAULT_QR_BORDER
     )
     if (
-        not has_design_overrides
-        and
+        not has_design_overrides and
         entry.qr_image_path
         and entry.qr_data_hash == data_hash
         and entry.qr_status == QrGenerationStatus.generated

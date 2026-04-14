@@ -286,11 +286,11 @@ export function ProjectDetailPage() {
     }
   };
 
-  const handleGenerateQr = async (entryId: string, foregroundColor?: string): Promise<boolean> => {
+  const handleGenerateQr = async (entryId: string, fgColor?: string): Promise<boolean> => {
     try {
       await generateQr({
         entryId,
-        payload: foregroundColor ? { fg_color: foregroundColor } : undefined,
+        payload: fgColor ? { fg_color: fgColor } : undefined,
       });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: entryKeys.all(id!) }),

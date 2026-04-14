@@ -16,6 +16,13 @@ CONTENT_TYPE_FIELDS = {
     "wifi": ["ssid"],
 }
 
+CONTENT_TYPE_DETECTION_FIELDS: dict[str, set[str]] = {
+    "url": {"url"},
+    "text": {"text"},
+    "vcard": {"first_name", "last_name", "organization", "title", "phone", "email", "address", "website", "note"},
+    "wifi": {"ssid", "password", "security", "hidden"},
+}
+
 # Common column name aliases for auto-detection
 COLUMN_ALIASES: dict[str, list[str]] = {
     "label": ["label", "name", "title", "description", "id", "identifier"],
@@ -53,6 +60,35 @@ def _read_file(file_bytes: bytes, filename: str) -> pd.DataFrame:
             return pd.read_csv(io.StringIO(file_bytes.decode("utf-8")), dtype=str)
         except UnicodeDecodeError:
             return pd.read_csv(io.StringIO(file_bytes.decode("latin-1")), dtype=str)
+
+
+def _normalize_content_type(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    return normalized if normalized in CONTENT_TYPE_FIELDS else None
+
+
+def _infer_content_type(content_data: dict[str, Any], preferred_type: str | None = None) -> str:
+    detected_types = [
+        content_type
+        for content_type, fields in CONTENT_TYPE_DETECTION_FIELDS.items()
+        if any(str(content_data.get(field, "")).strip() for field in fields)
+    ]
+
+    if not detected_types:
+        return "text"
+    if len(detected_types) == 1:
+        return detected_types[0]
+
+    if preferred_type and preferred_type in detected_types:
+        return preferred_type
+
+    for content_type in ("url", "vcard", "wifi", "text"):
+        if content_type in detected_types:
+            return content_type
+
+    return "text"
 
 
 def get_column_preview(file_bytes: bytes, filename: str) -> dict[str, Any]:
@@ -112,8 +148,9 @@ def import_from_file(
 
     entries = []
 
+    preferred_type = _normalize_content_type(content_type)
+
     # Fields that go into content_data vs top-level entry fields
-    content_fields = set(CONTENT_TYPE_FIELDS.get(content_type, []))
     all_content_fields = {"url", "text", "first_name", "last_name", "organization",
                           "title", "phone", "email", "address", "website",
                           "ssid", "password", "security", "hidden", "note"}
@@ -123,6 +160,7 @@ def import_from_file(
         label: str | None = None
         serial_number: str | None = None
         tags: list[str] = []
+        row_content_type: str | None = None
 
         for field, col_name in column_mapping.items():
             if col_name not in df.columns:
@@ -135,6 +173,8 @@ def import_from_file(
                 serial_number = value or None
             elif field == "tags":
                 tags = [t.strip() for t in value.split(",") if t.strip()]
+            elif field == "content_type":
+                row_content_type = _normalize_content_type(value)
             elif field in all_content_fields:
                 if value:
                     content_data[field] = value
@@ -143,8 +183,13 @@ def import_from_file(
         if not content_data and not label:
             continue
 
+        resolved_content_type = row_content_type or _infer_content_type(
+            content_data,
+            preferred_type=preferred_type,
+        )
+
         entries.append({
-            "content_type": content_type,
+            "content_type": resolved_content_type,
             "content_data": json.dumps(content_data),
             "label": label,
             "serial_number": serial_number,

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { clsx } from 'clsx';
-import { Tag, Trash2, CheckCircle, X, QrCode } from 'lucide-react';
-import { Button, Select } from '@/components/ui';
+import { Tag, Trash2, CheckCircle, X, QrCode, Download } from 'lucide-react';
+import { Button } from '@/components/ui';
 import type { EntryStatus } from '@/types';
 
 interface BulkActionsProps {
   selectedCount: number;
   onClearSelection: () => void;
   onChangeStatus: (status: EntryStatus) => void;
+  onDownloadZip?: () => void;
   onDelete: () => void;
   onGenerateQr?: () => void;
   loading?: boolean;
@@ -24,6 +25,7 @@ export function BulkActions({
   selectedCount,
   onClearSelection,
   onChangeStatus,
+  onDownloadZip,
   onDelete,
   onGenerateQr,
   loading,
@@ -96,6 +98,22 @@ export function BulkActions({
             leftIcon={<QrCode className="w-3.5 h-3.5" />}
           >
             Generate QR
+          </Button>
+          <div className="w-px h-6 bg-gray-700" />
+        </>
+      )}
+
+      {onDownloadZip && (
+        <>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onDownloadZip}
+            loading={loading}
+            className="bg-gray-700 text-white hover:bg-gray-600 border-0"
+            leftIcon={<Download className="w-3.5 h-3.5" />}
+          >
+            Download ZIP
           </Button>
           <div className="w-px h-6 bg-gray-700" />
         </>

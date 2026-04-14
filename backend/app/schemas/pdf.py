@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 
-
 class PDFLayoutOptions(BaseModel):
     page_size: str = Field("A4", description="Page size: A4 or Letter")
     orientation: str = Field("portrait", description="portrait or landscape")
@@ -13,10 +12,10 @@ class PDFLayoutOptions(BaseModel):
     show_serial: bool = Field(False, description="Print serial number below QR code")
     label_font_size: float = Field(8.0, ge=4, le=24, description="Label font size in pt")
     # QR design
-    fg_color: str = Field("#000000", description="QR foreground color (hex)")
-    bg_color: str = Field("#ffffff", description="QR background color (hex)")
-    error_correction: str = Field(
-        "M",
+    fg_color: str | None = Field(None, description="QR foreground color (hex)")
+    bg_color: str | None = Field(None, description="QR background color (hex)")
+    error_correction: str | None = Field(
+        None,
         description="Error correction level: L, M, Q, H",
         pattern="^[LMQH]$",
     )
@@ -43,8 +42,8 @@ class ExportZipRequest(BaseModel):
         description="Specific entry IDs to export; None means all",
     )
     format: str = Field("png", description="Image format: png or svg")
-    fg_color: str = Field("#000000")
-    bg_color: str = Field("#ffffff")
-    error_correction: str = Field("M", pattern="^[LMQH]$")
+    fg_color: str | None = Field(None)
+    bg_color: str | None = Field(None)
+    error_correction: str | None = Field(None, pattern="^[LMQH]$")
     box_size: int = Field(10, ge=1, le=50)
     border: int = Field(4, ge=0, le=20)

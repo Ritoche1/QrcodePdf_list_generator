@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 import json
 import re
-from hmac import new as hmac_new
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +13,11 @@ from PIL import Image
 from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_L, ERROR_CORRECT_M, ERROR_CORRECT_Q
 
 from app.core.config import settings
+from app.core.qr_defaults import (
+    STANDARD_QR_BACKGROUND_COLOR,
+    STANDARD_QR_ERROR_CORRECTION,
+    STANDARD_QR_FOREGROUND_COLOR,
+)
 
 ERROR_CORRECTION_MAP = {
     "L": ERROR_CORRECT_L,
@@ -123,9 +128,9 @@ def _build_wifi(data: dict[str, Any]) -> str:
 
 def generate_qr_png(
     content: str,
-    fg_color: str = "#000000",
-    bg_color: str = "#ffffff",
-    error_correction: str = "M",
+    fg_color: str = STANDARD_QR_FOREGROUND_COLOR,
+    bg_color: str = STANDARD_QR_BACKGROUND_COLOR,
+    error_correction: str = STANDARD_QR_ERROR_CORRECTION,
     box_size: int = 10,
     border: int = 4,
 ) -> tuple[bytes, list[str]]:
@@ -187,7 +192,7 @@ def compute_qr_data_hash(content_type: str, content_data: dict[str, Any]) -> str
     """Build normalized QR payload and return deterministic content hash."""
     normalized_type = getattr(content_type, "value", content_type)
     content, _ = build_qr_content(str(normalized_type), content_data)
-    return hmac_new(b"qr-cache-v1", content.encode("utf-8"), "sha256").hexdigest()
+    return sha256(content.encode("utf-8")).hexdigest()
 
 
 def check_duplicate_content(

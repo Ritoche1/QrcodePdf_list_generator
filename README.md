@@ -16,6 +16,7 @@ QRCodePDF is an open-source, self-hosted web application for generating QR codes
 ### QR Code Generation
 - **Multiple content types**: URL, plain text, vCard contacts, Wi-Fi credentials
 - **Design customization**: foreground/background colors, error correction levels (L/M/Q/H)
+- **Standard default template**: dark slate foreground (`#1f2937`), white background (`#ffffff`), and `Q` error correction for strong scan reliability
 - **Live preview**: see your QR code update in real-time as you type
 - **Input validation**: warnings for invalid URLs, oversized content, and duplicates
 
@@ -28,6 +29,7 @@ QRCodePDF is an open-source, self-hosted web application for generating QR codes
 
 ### Project Management
 - **Projects**: organize QR entries into named projects
+- **Project-level default QR design**: administrators can update the default QR colors/error correction from the project **Settings** popup
 - **Bulk import**: upload CSV or XLSX files with an interactive column mapping UI
 - **Entry status**: track entries through Draft → Generated → Printed → Archived
 - **Tagging**: add tags to entries for filtering and organization

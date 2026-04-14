@@ -8,6 +8,11 @@ import { QrDesignOptionsForm } from '@/components/qr/QrDesignOptions';
 import { QrPreview } from '@/components/qr/QrPreview';
 import { useToastContext } from '@/components/ui/Toast';
 import { qrApi, downloadBlob } from '@/lib/api';
+import {
+  STANDARD_QR_BACKGROUND_COLOR,
+  STANDARD_QR_ERROR_CORRECTION,
+  STANDARD_QR_FOREGROUND_COLOR,
+} from '@/lib/qrDefaults';
 import type { ContentType, QrContentData, QrDesignOptions } from '@/types';
 
 const defaultContent: Record<ContentType, QrContentData> = {
@@ -18,9 +23,9 @@ const defaultContent: Record<ContentType, QrContentData> = {
 };
 
 const defaultDesign: QrDesignOptions = {
-  foreground_color: '#000000',
-  background_color: '#ffffff',
-  error_correction: 'M',
+  foreground_color: STANDARD_QR_FOREGROUND_COLOR,
+  background_color: STANDARD_QR_BACKGROUND_COLOR,
+  error_correction: STANDARD_QR_ERROR_CORRECTION,
   size: 400,
 };
 

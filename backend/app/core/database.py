@@ -5,6 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
+from app.core.qr_defaults import (
+    STANDARD_QR_BACKGROUND_COLOR,
+    STANDARD_QR_ERROR_CORRECTION,
+    STANDARD_QR_FOREGROUND_COLOR,
+)
 
 
 class Base(DeclarativeBase):
@@ -52,21 +57,21 @@ async def create_all_tables() -> None:
                 await conn.execute(
                     text(
                         "ALTER TABLE projects ADD COLUMN default_qr_foreground_color "
-                        "VARCHAR(7) NOT NULL DEFAULT '#000000'"
+                        f"VARCHAR(7) NOT NULL DEFAULT '{STANDARD_QR_FOREGROUND_COLOR}'"
                     )
                 )
             if "default_qr_background_color" not in project_columns:
                 await conn.execute(
                     text(
                         "ALTER TABLE projects ADD COLUMN default_qr_background_color "
-                        "VARCHAR(7) NOT NULL DEFAULT '#ffffff'"
+                        f"VARCHAR(7) NOT NULL DEFAULT '{STANDARD_QR_BACKGROUND_COLOR}'"
                     )
                 )
             if "default_qr_error_correction" not in project_columns:
                 await conn.execute(
                     text(
                         "ALTER TABLE projects ADD COLUMN default_qr_error_correction "
-                        "VARCHAR(1) NOT NULL DEFAULT 'M'"
+                        f"VARCHAR(1) NOT NULL DEFAULT '{STANDARD_QR_ERROR_CORRECTION}'"
                     )
                 )
             result = await conn.execute(text("PRAGMA table_info(entries)"))

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -15,10 +15,15 @@ import { EntryEditorModal } from '@/components/entries/EntryEditorModal';
 import { ImportModal } from '@/components/entries/ImportModal';
 import { useProject, projectKeys, useUpdateProject } from '@/hooks/useProjects';
 import { useEntries, useDeleteEntry, useBulkDelete, useBulkStatus, useCreateEntry, entryKeys } from '@/hooks/useEntries';
+import { useGenerateQr } from '@/hooks/useQrPreview';
 import { useToastContext } from '@/components/ui/Toast';
 import { importExportApi, downloadBlob, qrApi } from '@/lib/api';
-import { useGenerateQr } from '@/hooks/useQrPreview';
-import type { CreateEntry } from '@/types';
+import {
+  STANDARD_QR_BACKGROUND_COLOR,
+  STANDARD_QR_ERROR_CORRECTION,
+  STANDARD_QR_FOREGROUND_COLOR,
+} from '@/lib/qrDefaults';
+import type { CreateEntry, Entry } from '@/types';
 import type { EntryFilters } from '@/types';
 import type { ErrorCorrectionLevel } from '@/types';
 
@@ -53,12 +58,16 @@ export function ProjectDetailPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [qrPreviewEntry, setQrPreviewEntry] = useState<Entry | null>(null);
+  const [qrPreviewBlob, setQrPreviewBlob] = useState<Blob | null>(null);
+  const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null);
+  const [qrPreviewLoading, setQrPreviewLoading] = useState(false);
   const [settingsForm, setSettingsForm] = useState<ProjectSettingsForm>({
     name: '',
     description: '',
-    default_qr_foreground_color: '#000000',
-    default_qr_background_color: '#ffffff',
-    default_qr_error_correction: 'M',
+    default_qr_foreground_color: STANDARD_QR_FOREGROUND_COLOR,
+    default_qr_background_color: STANDARD_QR_BACKGROUND_COLOR,
+    default_qr_error_correction: STANDARD_QR_ERROR_CORRECTION,
   });
 
   const { data: project, isLoading: projectLoading } = useProject(id!);
@@ -72,6 +81,12 @@ export function ProjectDetailPage() {
 
   const entries = entriesData?.items ?? [];
   const total = entriesData?.total ?? 0;
+  const defaultQrDesign = useMemo(() => ({
+    foreground_color: project?.default_qr_foreground_color ?? STANDARD_QR_FOREGROUND_COLOR,
+    background_color: project?.default_qr_background_color ?? STANDARD_QR_BACKGROUND_COLOR,
+    error_correction: project?.default_qr_error_correction ?? STANDARD_QR_ERROR_CORRECTION,
+    size: 400,
+  }), [project?.default_qr_background_color, project?.default_qr_error_correction, project?.default_qr_foreground_color]);
 
   useEffect(() => {
     if (!settingsOpen || !project) return;
@@ -83,6 +98,13 @@ export function ProjectDetailPage() {
       default_qr_error_correction: project.default_qr_error_correction,
     });
   }, [project, settingsOpen]);
+
+  useEffect(
+    () => () => {
+      if (qrPreviewUrl) URL.revokeObjectURL(qrPreviewUrl);
+    },
+    [qrPreviewUrl]
+  );
 
   if (projectLoading) return <PageLoader />;
   if (!project) return <div className="p-8 text-gray-500">Project not found.</div>;
@@ -148,6 +170,68 @@ export function ProjectDetailPage() {
       downloadBlob(blob, `${project.name}.${format}`);
     } catch {
       toast.error('Export failed');
+    }
+  };
+
+  const resolveEntryPngName = (entry: Entry): string => {
+    const fallbackName = `entry-${entry.id}`;
+    const baseName = (entry.label || fallbackName)
+      .trim()
+      .replace(/[^a-zA-Z0-9-_ ]+/g, '_')
+      .replace(/\s+/g, '-')
+      .slice(0, 60);
+    return `${baseName || fallbackName}.png`;
+  };
+
+  const handlePreviewEntryQr = async (entry: Entry) => {
+    setQrPreviewEntry(entry);
+    setQrPreviewLoading(true);
+    try {
+      const blob = await qrApi.preview({
+        content: entry.content,
+        design: defaultQrDesign,
+      });
+      setQrPreviewBlob(blob);
+      const nextUrl = URL.createObjectURL(blob);
+      setQrPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return nextUrl;
+      });
+    } catch {
+      toast.error('Failed to generate QR preview');
+      setQrPreviewEntry(null);
+      setQrPreviewBlob(null);
+      setQrPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    } finally {
+      setQrPreviewLoading(false);
+    }
+  };
+
+  const handleDownloadEntryQr = async (entry: Entry) => {
+    try {
+      const blob = await qrApi.preview({
+        content: entry.content,
+        design: defaultQrDesign,
+      });
+      downloadBlob(blob, resolveEntryPngName(entry));
+      toast.success('QR PNG downloaded');
+    } catch {
+      toast.error('Failed to download QR PNG');
+    }
+  };
+
+  const handleDownloadSelectedZip = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const selectedArray = Array.from(selectedIds);
+      const blob = await importExportApi.exportZip(id!, selectedArray);
+      downloadBlob(blob, `${project.name}-qrcodes-selected.zip`);
+      toast.success('Selected QR ZIP downloaded');
+    } catch {
+      toast.error('Failed to download selected ZIP');
     }
   };
 
@@ -340,6 +424,8 @@ export function ProjectDetailPage() {
         selectedIds={selectedIds}
         onSelectAll={handleSelectAll}
         onSelectRow={handleSelectRow}
+        onPreviewQr={handlePreviewEntryQr}
+        onDownloadQr={handleDownloadEntryQr}
         onDelete={(entry) => setDeleteEntryId(entry.id)}
         onGenerateQr={(entry) => handleGenerateQr(entry.id)}
       />
@@ -349,6 +435,7 @@ export function ProjectDetailPage() {
         selectedCount={selectedIds.size}
         onClearSelection={() => setSelectedIds(new Set())}
         onChangeStatus={handleBulkStatus}
+        onDownloadZip={handleDownloadSelectedZip}
         onDelete={() => setBulkDeleteConfirmOpen(true)}
         onGenerateQr={handleBulkGenerateQr}
         loading={isBulkStatusLoading || isBulkDeleting || isGeneratingQr}
@@ -376,6 +463,57 @@ export function ProjectDetailPage() {
         onClose={() => setManualEntryOpen(false)}
         onSubmit={handleCreateEntry}
       />
+
+      <Modal
+        isOpen={Boolean(qrPreviewEntry)}
+        onClose={() => {
+          setQrPreviewEntry(null);
+          setQrPreviewBlob(null);
+          setQrPreviewUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+          });
+        }}
+        title="QR PNG Preview"
+        description={qrPreviewEntry?.label || `Entry ${qrPreviewEntry?.id ?? ''}`}
+        size="md"
+        footer={(
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setQrPreviewEntry(null);
+                setQrPreviewBlob(null);
+                setQrPreviewUrl((prev) => {
+                  if (prev) URL.revokeObjectURL(prev);
+                  return null;
+                });
+              }}
+            >
+              Close
+            </Button>
+            <Button
+              disabled={!qrPreviewEntry || !qrPreviewBlob}
+              onClick={() => {
+                if (!qrPreviewEntry || !qrPreviewBlob) return;
+                downloadBlob(qrPreviewBlob, resolveEntryPngName(qrPreviewEntry));
+              }}
+            >
+              Download PNG
+            </Button>
+          </>
+        )}
+      >
+        <div className="flex items-center justify-center min-h-52">
+          {qrPreviewLoading && <p className="text-sm text-gray-500">Generating preview…</p>}
+          {!qrPreviewLoading && qrPreviewUrl && (
+            <img src={qrPreviewUrl} alt="QR preview" className="max-w-full rounded-lg border border-gray-200" />
+          )}
+          {!qrPreviewLoading && !qrPreviewUrl && (
+            <p className="text-sm text-gray-500">Preview unavailable.</p>
+          )}
+        </div>
+      </Modal>
 
       <Modal
         isOpen={settingsOpen}

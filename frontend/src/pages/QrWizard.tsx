@@ -138,6 +138,7 @@ export function QrWizardPage() {
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const generatedPdfUrlsRef = useRef<string[]>([]);
   const hasCustomizedPdfNameRef = useRef(false);
+  const hasCustomizedPreviewRef = useRef(false);
   const lastProjectIdRef = useRef<string | null>(null);
 
   // For design preview
@@ -163,6 +164,13 @@ export function QrWizardPage() {
   );
 
   const defaultPdfName = `${project?.name ?? 'qr-codes'}-qr.pdf`;
+  const defaultPreviewEntry = useMemo(() => {
+    if (selectedIds.size > 0) {
+      const selectedEntry = entries.find((entry) => selectedIds.has(entry.id));
+      if (selectedEntry) return selectedEntry;
+    }
+    return entries[0] ?? null;
+  }, [entries, selectedIds]);
 
   const goNext = () => {
     const idx = WIZARD_STEPS.findIndex((s) => s.key === step);
@@ -267,6 +275,12 @@ export function QrWizardPage() {
     generatedPdfUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
   }, []);
 
+  useEffect(() => {
+    if (step !== 'design' || hasCustomizedPreviewRef.current || !defaultPreviewEntry) return;
+    setPreviewContentType(defaultPreviewEntry.content_type);
+    setPreviewContent(defaultPreviewEntry.content);
+  }, [defaultPreviewEntry, step]);
+
   if (projectLoading) return <PageLoader />;
   if (!project) return <div className="p-8 text-gray-500">Project not found.</div>;
 
@@ -356,6 +370,7 @@ export function QrWizardPage() {
             <div className="mt-6 border-t border-gray-100 pt-5">
               <p className="text-sm font-medium text-gray-700 mb-3">Preview Content</p>
               <QrTypeSelector value={previewContentType} onChange={(t) => {
+                hasCustomizedPreviewRef.current = true;
                 setPreviewContentType(t);
                 const defaults: Record<ContentType, QrContentData> = {
                   url: { type: 'url', url: 'https://example.com' },

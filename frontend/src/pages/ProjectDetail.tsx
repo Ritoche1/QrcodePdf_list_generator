@@ -13,6 +13,7 @@ import { EntryFiltersBar } from '@/components/entries/EntryFilters';
 import { BulkActions } from '@/components/entries/BulkActions';
 import { EntryEditorModal } from '@/components/entries/EntryEditorModal';
 import { ImportModal } from '@/components/entries/ImportModal';
+import { QrPreview } from '@/components/qr/QrPreview';
 import { useProject, projectKeys, useUpdateProject } from '@/hooks/useProjects';
 import { useEntries, useDeleteEntry, useBulkDelete, useBulkStatus, useCreateEntry, entryKeys } from '@/hooks/useEntries';
 import { useGenerateQr } from '@/hooks/useQrPreview';
@@ -91,6 +92,19 @@ export function ProjectDetailPage() {
     error_correction: project?.default_qr_error_correction ?? STANDARD_QR_ERROR_CORRECTION,
     size: 400,
   }), [project?.default_qr_background_color, project?.default_qr_error_correction, project?.default_qr_foreground_color]);
+  const settingsPreviewRequest = useMemo(() => ({
+    content: { type: 'text', text: 'Default QR design preview' } as const,
+    design: {
+      foreground_color: settingsForm.default_qr_foreground_color,
+      background_color: settingsForm.default_qr_background_color,
+      error_correction: settingsForm.default_qr_error_correction,
+      size: 400,
+    },
+  }), [
+    settingsForm.default_qr_background_color,
+    settingsForm.default_qr_error_correction,
+    settingsForm.default_qr_foreground_color,
+  ]);
 
   useEffect(() => {
     if (!settingsOpen || !project) return;
@@ -662,7 +676,7 @@ export function ProjectDetailPage() {
           </div>
           <div className="space-y-3 border-t border-gray-100 pt-5">
             <h3 className="text-sm font-semibold text-gray-800">Default QR design</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Foreground Color
@@ -715,6 +729,18 @@ export function ProjectDetailPage() {
                 <option value="Q">Quartile (25%)</option>
                 <option value="H">High (30%)</option>
               </select>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 space-y-3">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-800">Current default preview</h4>
+                <p className="text-xs text-gray-500">
+                  Updates instantly as colors or error correction change.
+                </p>
+              </div>
+              <QrPreview request={settingsPreviewRequest} className="p-4" />
+              <p className="text-xs text-gray-500">
+                Foreground {settingsForm.default_qr_foreground_color} · Background {settingsForm.default_qr_background_color} · Error correction {settingsForm.default_qr_error_correction}
+              </p>
             </div>
           </div>
         </div>

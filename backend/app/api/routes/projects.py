@@ -34,6 +34,9 @@ async def list_projects(
                 id=p.id,
                 name=p.name,
                 description=p.description,
+                default_qr_foreground_color=p.default_qr_foreground_color,
+                default_qr_background_color=p.default_qr_background_color,
+                default_qr_error_correction=p.default_qr_error_correction,
                 created_at=p.created_at,
                 updated_at=p.updated_at,
             )
@@ -48,7 +51,13 @@ async def create_project(
     session: AsyncSession = Depends(get_session),
 ) -> ProjectWithCount:
     """Create a new project."""
-    project = Project(name=payload.name, description=payload.description)
+    project = Project(
+        name=payload.name,
+        description=payload.description,
+        default_qr_foreground_color=payload.default_qr_foreground_color,
+        default_qr_background_color=payload.default_qr_background_color,
+        default_qr_error_correction=payload.default_qr_error_correction,
+    )
     session.add(project)
     await session.flush()
     await session.refresh(project)
@@ -57,6 +66,9 @@ async def create_project(
         id=project.id,
         name=project.name,
         description=project.description,
+        default_qr_foreground_color=project.default_qr_foreground_color,
+        default_qr_background_color=project.default_qr_background_color,
+        default_qr_error_correction=project.default_qr_error_correction,
         created_at=project.created_at,
         updated_at=project.updated_at,
         entry_count=0,
@@ -101,6 +113,9 @@ async def get_project(
         id=project.id,
         name=project.name,
         description=project.description,
+        default_qr_foreground_color=project.default_qr_foreground_color,
+        default_qr_background_color=project.default_qr_background_color,
+        default_qr_error_correction=project.default_qr_error_correction,
         created_at=project.created_at,
         updated_at=project.updated_at,
         entry_count=entry_count,
@@ -122,8 +137,18 @@ async def update_project(
 
     if payload.name is not None:
         project.name = payload.name
-    if payload.description is not None:
+    if "description" in payload.model_fields_set:
         project.description = payload.description
+    if "default_qr_foreground_color" in payload.model_fields_set:
+        project.default_qr_foreground_color = (
+            payload.default_qr_foreground_color or "#000000"
+        )
+    if "default_qr_background_color" in payload.model_fields_set:
+        project.default_qr_background_color = (
+            payload.default_qr_background_color or "#ffffff"
+        )
+    if "default_qr_error_correction" in payload.model_fields_set:
+        project.default_qr_error_correction = payload.default_qr_error_correction or "M"
 
     await session.flush()
     await session.refresh(project)
@@ -132,6 +157,9 @@ async def update_project(
         id=project.id,
         name=project.name,
         description=project.description,
+        default_qr_foreground_color=project.default_qr_foreground_color,
+        default_qr_background_color=project.default_qr_background_color,
+        default_qr_error_correction=project.default_qr_error_correction,
         created_at=project.created_at,
         updated_at=project.updated_at,
     )

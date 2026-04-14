@@ -226,10 +226,17 @@ function mapPdfLayoutRequest(
 
 function normalizeProject(payload: Partial<Project> & { id?: string | number }): Project {
   const createdAt = payload.created_at ?? new Date(0).toISOString();
+  const errorCorrection = payload.default_qr_error_correction;
   return {
     id: String(payload.id ?? ''),
     name: payload.name ?? '',
     description: payload.description ?? undefined,
+    default_qr_foreground_color: payload.default_qr_foreground_color ?? '#000000',
+    default_qr_background_color: payload.default_qr_background_color ?? '#ffffff',
+    default_qr_error_correction:
+      errorCorrection === 'L' || errorCorrection === 'M' || errorCorrection === 'Q' || errorCorrection === 'H'
+        ? errorCorrection
+        : 'M',
     entry_count: payload.entry_count ?? 0,
     generated_count: payload.generated_count ?? 0,
     created_at: createdAt,

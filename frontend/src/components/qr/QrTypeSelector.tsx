@@ -5,6 +5,7 @@ import type { ContentType } from '@/types';
 interface QrTypeSelectorProps {
   value: ContentType;
   onChange: (type: ContentType) => void;
+  disabled?: boolean;
 }
 
 const qrTypes: {
@@ -39,7 +40,7 @@ const qrTypes: {
   },
 ];
 
-export function QrTypeSelector({ value, onChange }: QrTypeSelectorProps) {
+export function QrTypeSelector({ value, onChange, disabled = false }: QrTypeSelectorProps) {
   return (
     <div className="grid grid-cols-2 gap-3">
       {qrTypes.map((type) => {
@@ -48,12 +49,14 @@ export function QrTypeSelector({ value, onChange }: QrTypeSelectorProps) {
           <button
             key={type.value}
             type="button"
+            disabled={disabled}
             onClick={() => onChange(type.value)}
             className={clsx(
               'flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all',
               isSelected
                 ? 'border-indigo-500 bg-indigo-50'
-                : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50',
+              disabled && 'opacity-60 cursor-not-allowed hover:border-gray-200 hover:bg-white'
             )}
           >
             <div

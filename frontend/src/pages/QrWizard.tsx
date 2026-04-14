@@ -286,6 +286,7 @@ export function QrWizardPage() {
 
   const stepIndex = WIZARD_STEPS.findIndex((s) => s.key === step);
   const isLastStep = stepIndex === WIZARD_STEPS.length - 1;
+  const canSelectPreviewType = selectedIds.size === 1 || (selectedIds.size === 0 && total === 1);
 
   return (
     <div>
@@ -369,17 +370,26 @@ export function QrWizardPage() {
             <QrDesignOptionsForm value={design} onChange={setDesign} />
             <div className="mt-6 border-t border-gray-100 pt-5">
               <p className="text-sm font-medium text-gray-700 mb-3">Preview Content</p>
-              <QrTypeSelector value={previewContentType} onChange={(t) => {
-                hasCustomizedPreviewRef.current = true;
-                setPreviewContentType(t);
-                const defaults: Record<ContentType, QrContentData> = {
-                  url: { type: 'url', url: 'https://example.com' },
-                  text: { type: 'text', text: 'Sample text' },
-                  vcard: { type: 'vcard', first_name: 'John', last_name: 'Doe' },
-                  wifi: { type: 'wifi', ssid: 'MyWifi', encryption: 'WPA', hidden: false },
-                };
-                setPreviewContent(defaults[t]);
-              }} />
+              {!canSelectPreviewType && (
+                <p className="text-xs text-gray-500 mb-3">
+                  Type selection is available only when generating a single QR code.
+                </p>
+              )}
+              <QrTypeSelector
+                value={previewContentType}
+                disabled={!canSelectPreviewType}
+                onChange={(t) => {
+                  hasCustomizedPreviewRef.current = true;
+                  setPreviewContentType(t);
+                  const defaults: Record<ContentType, QrContentData> = {
+                    url: { type: 'url', url: 'https://example.com' },
+                    text: { type: 'text', text: 'Sample text' },
+                    vcard: { type: 'vcard', first_name: 'John', last_name: 'Doe' },
+                    wifi: { type: 'wifi', ssid: 'MyWifi', encryption: 'WPA', hidden: false },
+                  };
+                  setPreviewContent(defaults[t]);
+                }}
+              />
             </div>
           </Card>
           <div className="flex flex-col gap-4">

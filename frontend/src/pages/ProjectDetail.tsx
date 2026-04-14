@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Download, FileDown, Wand2, Pencil,
+  Plus, Download, FileDown, QrCode
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
 import { Button, Card, Modal, ConfirmModal } from '@/components/ui';
@@ -20,9 +19,6 @@ import { useToastContext } from '@/components/ui/Toast';
 import { importExportApi, downloadBlob } from '@/lib/api';
 import type { CreateEntry } from '@/types';
 import type { EntryFilters } from '@/types';
-
-const IMPORT_MENU_ITEM = 0 as const;
-const ADD_ENTRY_MENU_ITEM = 1 as const;
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -44,12 +40,8 @@ export function ProjectDetailPage() {
   // Modals
   const [importOpen, setImportOpen] = useState(false);
   const [manualEntryOpen, setManualEntryOpen] = useState(false);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const addMenuRef = useRef<HTMLDivElement | null>(null);
-  const importMenuItemRef = useRef<HTMLButtonElement | null>(null);
-  const addEntryMenuItemRef = useRef<HTMLButtonElement | null>(null);
 
   const { data: project, isLoading: projectLoading } = useProject(id!);
   const { data: entriesData, isLoading: entriesLoading } = useEntries(id!, filters);
@@ -127,54 +119,6 @@ export function ProjectDetailPage() {
     }
   };
 
-  useEffect(() => {
-    const handleMouseDown = (event: MouseEvent) => {
-      if (!event.target) return;
-      if (!addMenuRef.current?.contains(event.target as Node)) {
-        setAddMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, []);
-
-  useEffect(() => {
-    if (addMenuOpen) {
-      importMenuItemRef.current?.focus();
-    }
-  }, [addMenuOpen]);
-
-  const focusAddMenuItem = (index: typeof IMPORT_MENU_ITEM | typeof ADD_ENTRY_MENU_ITEM) => {
-    if (index === IMPORT_MENU_ITEM) importMenuItemRef.current?.focus();
-    else addEntryMenuItemRef.current?.focus();
-  };
-
-  const handleAddMenuItemKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (event.key === 'Escape') {
-      setAddMenuOpen(false);
-      return;
-    }
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      focusAddMenuItem(ADD_ENTRY_MENU_ITEM);
-      return;
-    }
-    if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      focusAddMenuItem(IMPORT_MENU_ITEM);
-      return;
-    }
-    if (event.key === 'Home') {
-      event.preventDefault();
-      focusAddMenuItem(IMPORT_MENU_ITEM);
-      return;
-    }
-    if (event.key === 'End') {
-      event.preventDefault();
-      focusAddMenuItem(ADD_ENTRY_MENU_ITEM);
-    }
-  };
-
   return (
     <div>
       <PageHeader
@@ -186,57 +130,30 @@ export function ProjectDetailPage() {
         ]}
         actions={
           <div className="flex items-center gap-2">
-            <div className="relative" ref={addMenuRef}>
+            <div className="relative group">
               <Button
                 variant="outline"
                 size="sm"
                 leftIcon={<Plus className="w-4 h-4" />}
-                aria-haspopup="menu"
-                aria-expanded={addMenuOpen}
-                onClick={() => setAddMenuOpen((prev) => !prev)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') setAddMenuOpen(false);
-                  if (event.key === 'ArrowDown' && !addMenuOpen) {
-                    event.preventDefault();
-                    setAddMenuOpen(true);
-                  }
-                }}
               >
-                + Add
+                Add
               </Button>
-              {addMenuOpen && (
-                <div
-                  className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-20"
-                  role="menu"
-                >
-                <button
-                  ref={importMenuItemRef}
-                  role="menuitem"
-                  tabIndex={0}
-                  onKeyDown={handleAddMenuItemKeyDown}
-                  onClick={() => {
-                    setImportOpen(true);
-                    setAddMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  Import
-                </button>
-                <button
-                  ref={addEntryMenuItemRef}
-                  role="menuitem"
-                  tabIndex={0}
-                  onKeyDown={handleAddMenuItemKeyDown}
-                  onClick={() => {
-                    setManualEntryOpen(true);
-                    setAddMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  Add Entry
-                </button>
+              <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-20 w-36">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+                  <button
+                    onClick={() => setImportOpen(true)}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Import
+                  </button>
+                  <button
+                    onClick={() => setManualEntryOpen(true)}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Add Entry
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
             <div className="relative group">
               <Button
@@ -246,19 +163,21 @@ export function ProjectDetailPage() {
               >
                 Export
               </Button>
-              <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 hidden group-hover:block z-20">
-                <button
-                  onClick={() => handleExport('csv')}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  Export CSV
-                </button>
-                <button
-                  onClick={() => handleExport('xlsx')}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  Export Excel
-                </button>
+              <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-20 w-36">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+                  <button
+                    onClick={() => handleExport('csv')}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => handleExport('xlsx')}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Export Excel
+                  </button>
+                </div>
               </div>
             </div>
             <Button
@@ -271,10 +190,10 @@ export function ProjectDetailPage() {
             </Button>
             <Button
               size="sm"
-              leftIcon={<Plus className="w-4 h-4" />}
+              leftIcon={<QrCode className="w-4 h-4" />}
               onClick={() => navigate(`/projects/${id}/generate`)}
             >
-              + Generate
+              Generate
             </Button>
           </div>
         }

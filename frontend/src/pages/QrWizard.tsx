@@ -266,6 +266,12 @@ export function QrWizardPage() {
     if (lastProjectIdRef.current !== project.id) {
       lastProjectIdRef.current = project.id;
       hasCustomizedPdfNameRef.current = false;
+      setDesign({
+        foreground_color: project.default_qr_foreground_color,
+        background_color: project.default_qr_background_color,
+        error_correction: project.default_qr_error_correction,
+        size: defaultDesign.size,
+      });
     }
     if (hasCustomizedPdfNameRef.current) return;
     setCustomPdfName(`${project.name}-qr.pdf`);

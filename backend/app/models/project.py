@@ -12,6 +12,15 @@ class Project(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    default_qr_foreground_color: Mapped[str] = mapped_column(
+        String(7), nullable=False, default="#000000"
+    )
+    default_qr_background_color: Mapped[str] = mapped_column(
+        String(7), nullable=False, default="#ffffff"
+    )
+    default_qr_error_correction: Mapped[str] = mapped_column(
+        String(1), nullable=False, default="M"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

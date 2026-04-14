@@ -104,3 +104,7 @@ class BulkTagsUpdate(BaseModel):
     entry_ids: list[int] = Field(..., min_length=1)
     add_tags: list[str] = Field(default_factory=list)
     remove_tags: list[str] = Field(default_factory=list)
+
+
+class BulkDeleteRequest(BaseModel):
+    entry_ids: list[int] = Field(..., min_length=1)

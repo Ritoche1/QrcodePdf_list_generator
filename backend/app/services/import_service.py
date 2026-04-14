@@ -26,6 +26,7 @@ CONTENT_TYPE_PRIORITY = ("url", "vcard", "wifi", "text")
 
 # Common column name aliases for auto-detection
 COLUMN_ALIASES: dict[str, list[str]] = {
+    "content_type": ["content_type", "type", "category"],
     "label": ["label", "name", "title", "description", "id", "identifier"],
     "url": ["url", "link", "href", "website", "web"],
     "text": ["text", "content", "data", "value", "message"],

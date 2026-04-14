@@ -15,6 +15,7 @@ type Step = 'upload' | 'mapping' | 'done';
 
 const FIELD_OPTIONS = [
   { value: '', label: '— Skip column —' },
+  { value: 'content_type', label: 'Content Type' },
   { value: 'label', label: 'Label' },
   { value: 'url', label: 'URL (content)' },
   { value: 'text', label: 'Text (content)' },

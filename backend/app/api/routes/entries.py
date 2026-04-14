@@ -6,7 +6,7 @@ import math
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, func, or_, select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
@@ -15,6 +15,7 @@ from app.models.project import Project
 from app.schemas.entry import (
     BulkStatusUpdate,
     BulkTagsUpdate,
+    BulkDeleteRequest,
     EntryCreate,
     EntryListResponse,
     EntryResponse,
@@ -270,3 +271,15 @@ async def bulk_update_tags(
 
     await session.flush()
     return {"updated": updated_count}
+
+
+@router.post("/entries/bulk-delete", response_model=dict)
+async def bulk_delete_entries(
+    payload: BulkDeleteRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Bulk delete a list of entries."""
+    stmt = delete(Entry).where(Entry.id.in_(payload.entry_ids)).returning(Entry.id)
+    result = await session.execute(stmt)
+    deleted_ids = [row[0] for row in result.fetchall()]
+    return {"deleted": len(deleted_ids), "ids": deleted_ids}

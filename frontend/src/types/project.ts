@@ -23,7 +23,7 @@ export interface CreateProject {
 
 export interface UpdateProject {
   name?: string;
-  description?: string;
+  description?: string | null;
   tags?: string[];
   default_qr_foreground_color?: string;
   default_qr_background_color?: string;

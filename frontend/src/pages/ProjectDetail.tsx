@@ -169,7 +169,7 @@ export function ProjectDetailPage() {
     try {
       await updateProject({
         name: settingsForm.name.trim(),
-        description: settingsForm.description.trim(),
+        description: settingsForm.description.trim() || null,
         default_qr_foreground_color: settingsForm.default_qr_foreground_color,
         default_qr_background_color: settingsForm.default_qr_background_color,
         default_qr_error_correction: settingsForm.default_qr_error_correction,
@@ -359,7 +359,7 @@ export function ProjectDetailPage() {
               Cancel
             </Button>
             <Button onClick={handleSaveSettings} loading={isUpdatingProject}>
-              Save settings
+              Save Settings
             </Button>
           </>
         )}

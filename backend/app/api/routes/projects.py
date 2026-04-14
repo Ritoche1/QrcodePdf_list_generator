@@ -137,14 +137,18 @@ async def update_project(
 
     if payload.name is not None:
         project.name = payload.name
-    if payload.description is not None:
+    if "description" in payload.model_fields_set:
         project.description = payload.description
-    if payload.default_qr_foreground_color is not None:
-        project.default_qr_foreground_color = payload.default_qr_foreground_color
-    if payload.default_qr_background_color is not None:
-        project.default_qr_background_color = payload.default_qr_background_color
-    if payload.default_qr_error_correction is not None:
-        project.default_qr_error_correction = payload.default_qr_error_correction
+    if "default_qr_foreground_color" in payload.model_fields_set:
+        project.default_qr_foreground_color = (
+            payload.default_qr_foreground_color or "#000000"
+        )
+    if "default_qr_background_color" in payload.model_fields_set:
+        project.default_qr_background_color = (
+            payload.default_qr_background_color or "#ffffff"
+        )
+    if "default_qr_error_correction" in payload.model_fields_set:
+        project.default_qr_error_correction = payload.default_qr_error_correction or "M"
 
     await session.flush()
     await session.refresh(project)

@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import os
 import pathlib
+import shutil
 import tempfile
 
 import pytest
@@ -17,6 +18,10 @@ from httpx import ASGITransport, AsyncClient
 TEST_DATA_DIR = tempfile.mkdtemp(prefix="qrtest_pytest_")
 os.environ.setdefault("DATA_DIR", TEST_DATA_DIR)
 pathlib.Path(TEST_DATA_DIR).mkdir(exist_ok=True)
+
+
+def teardown_module(module):
+    shutil.rmtree(TEST_DATA_DIR, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")
@@ -63,6 +68,7 @@ async def test_project_crud(client: AsyncClient):
         f"/api/v1/projects/{pid}",
         json={
             "name": "Updated",
+            "description": None,
             "default_qr_foreground_color": "#4338ca",
             "default_qr_background_color": "#eef2ff",
             "default_qr_error_correction": "Q",
@@ -71,9 +77,25 @@ async def test_project_crud(client: AsyncClient):
     assert r.status_code == 200
     updated = r.json()
     assert updated["name"] == "Updated"
+    assert updated["description"] is None
     assert updated["default_qr_foreground_color"] == "#4338ca"
     assert updated["default_qr_background_color"] == "#eef2ff"
     assert updated["default_qr_error_correction"] == "Q"
+
+    # Reset defaults back to system fallback values
+    r = await client.put(
+        f"/api/v1/projects/{pid}",
+        json={
+            "default_qr_foreground_color": None,
+            "default_qr_background_color": None,
+            "default_qr_error_correction": None,
+        },
+    )
+    assert r.status_code == 200
+    reset = r.json()
+    assert reset["default_qr_foreground_color"] == "#000000"
+    assert reset["default_qr_background_color"] == "#ffffff"
+    assert reset["default_qr_error_correction"] == "M"
 
     # Delete
     r = await client.delete(f"/api/v1/projects/{pid}")

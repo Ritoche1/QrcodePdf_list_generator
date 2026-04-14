@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -44,6 +45,30 @@ async def create_all_tables() -> None:
 
     async with get_engine().begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if conn.dialect.name == "sqlite":
+            result = await conn.execute(text("PRAGMA table_info(projects)"))
+            project_columns = {row[1] for row in result.fetchall()}
+            if "default_qr_foreground_color" not in project_columns:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE projects ADD COLUMN default_qr_foreground_color "
+                        "VARCHAR(7) NOT NULL DEFAULT '#000000'"
+                    )
+                )
+            if "default_qr_background_color" not in project_columns:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE projects ADD COLUMN default_qr_background_color "
+                        "VARCHAR(7) NOT NULL DEFAULT '#ffffff'"
+                    )
+                )
+            if "default_qr_error_correction" not in project_columns:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE projects ADD COLUMN default_qr_error_correction "
+                        "VARCHAR(1) NOT NULL DEFAULT 'M'"
+                    )
+                )
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

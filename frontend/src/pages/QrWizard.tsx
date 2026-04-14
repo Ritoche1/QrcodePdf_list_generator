@@ -138,6 +138,7 @@ export function QrWizardPage() {
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const generatedPdfUrlsRef = useRef<string[]>([]);
   const hasCustomizedPdfNameRef = useRef(false);
+  const hasCustomizedDesignRef = useRef(false);
   const hasCustomizedPreviewRef = useRef(false);
   const lastProjectIdRef = useRef<string | null>(null);
 
@@ -266,12 +267,15 @@ export function QrWizardPage() {
     if (lastProjectIdRef.current !== project.id) {
       lastProjectIdRef.current = project.id;
       hasCustomizedPdfNameRef.current = false;
-      setDesign({
-        foreground_color: project.default_qr_foreground_color,
-        background_color: project.default_qr_background_color,
-        error_correction: project.default_qr_error_correction,
-        size: defaultDesign.size,
-      });
+      if (!hasCustomizedDesignRef.current) {
+        setDesign((prev) => ({
+          foreground_color: project.default_qr_foreground_color,
+          background_color: project.default_qr_background_color,
+          error_correction: project.default_qr_error_correction,
+          size: prev.size ?? defaultDesign.size,
+        }));
+      }
+      hasCustomizedDesignRef.current = false;
     }
     if (hasCustomizedPdfNameRef.current) return;
     setCustomPdfName(`${project.name}-qr.pdf`);
@@ -372,7 +376,13 @@ export function QrWizardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <h3 className="text-sm font-semibold text-gray-700 mb-4">QR Design Options</h3>
-            <QrDesignOptionsForm value={design} onChange={setDesign} />
+            <QrDesignOptionsForm
+              value={design}
+              onChange={(next) => {
+                hasCustomizedDesignRef.current = true;
+                setDesign(next);
+              }}
+            />
             <div className="mt-6 border-t border-gray-100 pt-5">
               <p className="text-sm font-medium text-gray-700 mb-3">Preview Content</p>
               <QrTypeSelector value={previewContentType} onChange={(t) => {

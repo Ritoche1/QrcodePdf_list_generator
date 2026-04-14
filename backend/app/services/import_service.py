@@ -22,6 +22,7 @@ CONTENT_TYPE_DETECTION_FIELDS: dict[str, set[str]] = {
     "vcard": {"first_name", "last_name", "organization", "title", "phone", "email", "address", "website", "note"},
     "wifi": {"ssid", "password", "security", "hidden"},
 }
+CONTENT_TYPE_PRIORITY = ("url", "vcard", "wifi", "text")
 
 # Common column name aliases for auto-detection
 COLUMN_ALIASES: dict[str, list[str]] = {
@@ -63,6 +64,7 @@ def _read_file(file_bytes: bytes, filename: str) -> pd.DataFrame:
 
 
 def _normalize_content_type(value: Any) -> str | None:
+    """Normalize a content type string and return None if unsupported."""
     if value is None:
         return None
     normalized = str(value).strip().lower()
@@ -70,6 +72,7 @@ def _normalize_content_type(value: Any) -> str | None:
 
 
 def _infer_content_type(content_data: dict[str, Any], preferred_type: str | None = None) -> str:
+    """Infer entry content type from populated fields, defaulting to text when unknown."""
     detected_types = [
         content_type
         for content_type, fields in CONTENT_TYPE_DETECTION_FIELDS.items()
@@ -84,7 +87,7 @@ def _infer_content_type(content_data: dict[str, Any], preferred_type: str | None
     if preferred_type and preferred_type in detected_types:
         return preferred_type
 
-    for content_type in ("url", "vcard", "wifi", "text"):
+    for content_type in CONTENT_TYPE_PRIORITY:
         if content_type in detected_types:
             return content_type
 
@@ -151,9 +154,7 @@ def import_from_file(
     preferred_type = _normalize_content_type(content_type)
 
     # Fields that go into content_data vs top-level entry fields
-    all_content_fields = {"url", "text", "first_name", "last_name", "organization",
-                          "title", "phone", "email", "address", "website",
-                          "ssid", "password", "security", "hidden", "note"}
+    all_content_fields = set().union(*CONTENT_TYPE_DETECTION_FIELDS.values())
 
     for _, row in df.iterrows():
         content_data: dict[str, Any] = {}

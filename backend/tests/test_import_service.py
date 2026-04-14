@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import pathlib
+import tempfile
 
 import pytest
 import pytest_asyncio
@@ -11,11 +11,12 @@ from httpx import ASGITransport, AsyncClient
 
 from app.services.import_service import import_from_file
 
-os.environ.setdefault("DATA_DIR", "/tmp/qrtest_import")
-pathlib.Path("/tmp/qrtest_import").mkdir(exist_ok=True)
+TEST_DATA_DIR = tempfile.mkdtemp(prefix="qrtest_import_")
+os.environ.setdefault("DATA_DIR", TEST_DATA_DIR)
+pathlib.Path(TEST_DATA_DIR).mkdir(exist_ok=True)
 
 
-def test_import_from_file_infers_content_type_per_row_when_not_mapped():
+def test_import_from_file_infers_content_type_per_row_without_mapped_content_type():
     csv_content = """label,url,text,first_name,last_name,ssid,password,security
 URL Row,https://example.com,,,,,,
 Text Row,,Welcome message,,,,,
@@ -39,10 +40,17 @@ Label Only,,,,,,,
         file_bytes=csv_content.encode("utf-8"),
         filename="rows.csv",
         column_mapping=mapping,
-        content_type="url",
+        content_type="unknown",
     )
 
     assert len(entries) == 5
+    assert [entry["label"] for entry in entries] == [
+        "URL Row",
+        "Text Row",
+        "VCard Row",
+        "WiFi Row",
+        "Label Only",
+    ]
     assert [entry["content_type"] for entry in entries] == ["url", "text", "vcard", "wifi", "text"]
     assert json.loads(entries[-1]["content_data"]) == {}
 
@@ -70,11 +78,21 @@ invalid,https://fallback.test,,Fallback Detect
     assert [entry["content_type"] for entry in entries] == ["text", "url", "url"]
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+def test_import_from_file_infers_without_valid_default_content_type():
+    csv_content = """label,url,text
+URL Row,https://example.com,
+Text Row,,Hello
+"""
+    mapping = {"label": "label", "url": "url", "text": "text"}
+
+    entries = import_from_file(
+        file_bytes=csv_content.encode("utf-8"),
+        filename="rows.csv",
+        column_mapping=mapping,
+        content_type="unknown",
+    )
+
+    assert [entry["content_type"] for entry in entries] == ["url", "text"]
 
 
 @pytest_asyncio.fixture(scope="session")

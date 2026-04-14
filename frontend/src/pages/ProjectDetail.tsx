@@ -62,6 +62,10 @@ export function ProjectDetailPage() {
   const [qrPreviewBlob, setQrPreviewBlob] = useState<Blob | null>(null);
   const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null);
   const [qrPreviewLoading, setQrPreviewLoading] = useState(false);
+  const [qrDesignEntry, setQrDesignEntry] = useState<Entry | null>(null);
+  const [qrDesignColor, setQrDesignColor] = useState(STANDARD_QR_FOREGROUND_COLOR);
+  const [qrDesignPreviewUrl, setQrDesignPreviewUrl] = useState<string | null>(null);
+  const [qrDesignPreviewLoading, setQrDesignPreviewLoading] = useState(false);
   const [settingsForm, setSettingsForm] = useState<ProjectSettingsForm>({
     name: '',
     description: '',
@@ -102,9 +106,45 @@ export function ProjectDetailPage() {
   useEffect(
     () => () => {
       if (qrPreviewUrl) URL.revokeObjectURL(qrPreviewUrl);
+      if (qrDesignPreviewUrl) URL.revokeObjectURL(qrDesignPreviewUrl);
     },
-    [qrPreviewUrl]
+    [qrPreviewUrl, qrDesignPreviewUrl]
   );
+
+  useEffect(() => {
+    if (!qrDesignEntry) return;
+    let cancelled = false;
+    setQrDesignPreviewLoading(true);
+    qrApi
+      .preview({
+        content: qrDesignEntry.content,
+        design: {
+          ...defaultQrDesign,
+          foreground_color: qrDesignColor,
+        },
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        const nextUrl = URL.createObjectURL(blob);
+        setQrDesignPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return nextUrl;
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setQrDesignPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setQrDesignPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultQrDesign, qrDesignColor, qrDesignEntry]);
 
   if (projectLoading) return <PageLoader />;
   if (!project) return <div className="p-8 text-gray-500">Project not found.</div>;
@@ -246,17 +286,35 @@ export function ProjectDetailPage() {
     }
   };
 
-  const handleGenerateQr = async (entryId: string) => {
+  const handleGenerateQr = async (entryId: string, foregroundColor?: string): Promise<boolean> => {
     try {
-      await generateQr(entryId);
+      await generateQr({
+        entryId,
+        payload: foregroundColor ? { fg_color: foregroundColor } : undefined,
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: entryKeys.all(id!) }),
         queryClient.invalidateQueries({ queryKey: projectKeys.detail(id!) }),
       ]);
       toast.success('QR code generated');
+      return true;
     } catch {
       toast.error('Failed to generate QR code');
+      return false;
     }
+  };
+
+  const openQrDesignModal = (entry: Entry) => {
+    setQrDesignEntry(entry);
+    setQrDesignColor(defaultQrDesign.foreground_color);
+  };
+
+  const closeQrDesignModal = () => {
+    setQrDesignEntry(null);
+    setQrDesignPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   };
 
   const handleBulkGenerateQr = async () => {
@@ -427,7 +485,7 @@ export function ProjectDetailPage() {
         onPreviewQr={handlePreviewEntryQr}
         onDownloadQr={handleDownloadEntryQr}
         onDelete={(entry) => setDeleteEntryId(entry.id)}
-        onGenerateQr={(entry) => handleGenerateQr(entry.id)}
+        onGenerateQr={openQrDesignModal}
       />
 
       {/* Bulk actions floating bar */}
@@ -463,6 +521,59 @@ export function ProjectDetailPage() {
         onClose={() => setManualEntryOpen(false)}
         onSubmit={handleCreateEntry}
       />
+
+      <Modal
+        isOpen={Boolean(qrDesignEntry)}
+        onClose={closeQrDesignModal}
+        title="Generate QR Code"
+        description="Choose a color and preview before saving the QR design."
+        size="md"
+        footer={(
+          <>
+            <Button variant="outline" onClick={closeQrDesignModal}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!qrDesignEntry) return;
+                const success = await handleGenerateQr(qrDesignEntry.id, qrDesignColor);
+                if (success) closeQrDesignModal();
+              }}
+              loading={isGeneratingQr}
+              disabled={qrDesignPreviewLoading || !qrDesignPreviewUrl}
+            >
+              Save
+            </Button>
+          </>
+        )}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              QR color
+            </label>
+            <div className="flex items-center gap-2 border border-gray-300 rounded-lg p-2 bg-white w-fit">
+              <input
+                type="color"
+                value={qrDesignColor}
+                onChange={(event) => setQrDesignColor(event.target.value)}
+                className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
+                aria-label="Pick QR color"
+              />
+              <span className="text-sm font-mono text-gray-600">{qrDesignColor}</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-center min-h-52 rounded-lg border border-gray-200 bg-gray-50">
+            {qrDesignPreviewLoading && <p className="text-sm text-gray-500">Generating preview…</p>}
+            {!qrDesignPreviewLoading && qrDesignPreviewUrl && (
+              <img src={qrDesignPreviewUrl} alt="QR color preview" className="max-w-full rounded-lg border border-gray-200 bg-white" />
+            )}
+            {!qrDesignPreviewLoading && !qrDesignPreviewUrl && (
+              <p className="text-sm text-red-500">Preview unavailable. Please choose a color and try again.</p>
+            )}
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={Boolean(qrPreviewEntry)}

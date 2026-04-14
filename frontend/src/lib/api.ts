@@ -74,6 +74,12 @@ interface BackendQrPreviewRequest {
   border: number;
 }
 
+interface BackendQrGenerateRequest {
+  fg_color?: string;
+  bg_color?: string;
+  error_correction?: 'L' | 'M' | 'Q' | 'H';
+}
+
 interface BackendPdfLayoutOptions {
   page_size: string;
   orientation: 'portrait' | 'landscape';
@@ -399,8 +405,8 @@ export const qrApi = {
     return data;
   },
 
-  generate: async (entryId: string): Promise<Entry> => {
-    const { data } = await apiClient.post<Entry>(`/qr/generate/${entryId}`, {});
+  generate: async (entryId: string, payload?: BackendQrGenerateRequest): Promise<Entry> => {
+    const { data } = await apiClient.post<Entry>(`/qr/generate/${entryId}`, payload ?? {});
     return normalizeEntry(data);
   },
 

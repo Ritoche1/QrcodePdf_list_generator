@@ -100,7 +100,16 @@ async def qr_generate(
         raise HTTPException(status_code=422, detail=str(e))
 
     data_hash = compute_qr_data_hash(str(normalized_content_type), content_data)
+    has_design_overrides = (
+        payload.fg_color is not None
+        or payload.bg_color is not None
+        or payload.error_correction is not None
+        or payload.box_size != 10
+        or payload.border != 4
+    )
     if (
+        not has_design_overrides
+        and
         entry.qr_image_path
         and entry.qr_data_hash == data_hash
         and entry.qr_status == QrGenerationStatus.generated

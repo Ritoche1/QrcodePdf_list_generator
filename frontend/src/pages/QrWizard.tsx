@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { Check, ChevronRight } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, Input } from '@/components/ui';
+import { Button, Card, Input, Modal } from '@/components/ui';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { QrTypeSelector } from '@/components/qr/QrTypeSelector';
 import { QrContentForm } from '@/components/qr/QrContentForm';
@@ -14,10 +14,10 @@ import { PdfPreview } from '@/components/pdf/PdfPreview';
 import { EntryFiltersBar } from '@/components/entries/EntryFilters';
 import { EntryTable } from '@/components/entries/EntryTable';
 import { useProject } from '@/hooks/useProjects';
-import { useEntries } from '@/hooks/useEntries';
+import { useEntries, useUpdateEntry } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
 import { pdfApi, downloadBlob } from '@/lib/api';
-import type { ContentType, QrContentData, QrDesignOptions, PdfLayoutOptions, EntryFilters } from '@/types';
+import type { ContentType, QrContentData, QrDesignOptions, PdfLayoutOptions, EntryFilters, Entry } from '@/types';
 
 type WizardStep = 'select' | 'design' | 'layout' | 'download';
 
@@ -66,6 +66,19 @@ function normalizePdfFileName(value: string, fallback: string): string {
 
 function generatePdfId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createDefaultContent(type: ContentType): QrContentData {
+  switch (type) {
+    case 'url':
+      return { type: 'url', url: 'https://example.com' };
+    case 'text':
+      return { type: 'text', text: 'Sample text' };
+    case 'vcard':
+      return { type: 'vcard', first_name: 'John', last_name: 'Doe' };
+    case 'wifi':
+      return { type: 'wifi', ssid: 'MyWifi', encryption: 'WPA', hidden: false };
+  }
 }
 
 function StepIndicator({ currentStep }: { currentStep: WizardStep }) {
@@ -130,6 +143,10 @@ export function QrWizardPage() {
   const [customPdfName, setCustomPdfName] = useState('');
   const [generatedPdfs, setGeneratedPdfs] = useState<GeneratedPdfItem[]>([]);
   const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editContentType, setEditContentType] = useState<ContentType>('text');
+  const [editContent, setEditContent] = useState<QrContentData>(createDefaultContent('text'));
   const generatedPdfUrlsRef = useRef<string[]>([]);
   const hasCustomizedPdfNameRef = useRef(false);
   const lastProjectIdRef = useRef<string | null>(null);
@@ -140,6 +157,7 @@ export function QrWizardPage() {
 
   const { data: project, isLoading: projectLoading } = useProject(id!);
   const { data: entriesData, isLoading: entriesLoading } = useEntries(id!, filters);
+  const { mutateAsync: updateEntry, isPending: updatingEntry } = useUpdateEntry(id!);
 
   const entries = entriesData?.items ?? [];
   const total = entriesData?.total ?? 0;
@@ -206,6 +224,31 @@ export function QrWizardPage() {
   const handleDownloadGeneratedPdf = (item: GeneratedPdfItem) => {
     downloadBlob(item.blob, normalizePdfFileName(item.fileName, defaultPdfName));
     toast.success('PDF downloaded successfully');
+  };
+
+  const handleOpenEditEntry = (entry: Entry) => {
+    setEditingEntry(entry);
+    setEditLabel(entry.label ?? '');
+    setEditContentType(entry.content_type);
+    setEditContent(entry.content);
+  };
+
+  const handleSaveEntry = async () => {
+    if (!editingEntry) return;
+    try {
+      await updateEntry({
+        id: editingEntry.id,
+        payload: {
+          label: editLabel.trim() || undefined,
+          content_type: editContentType,
+          content: editContent,
+        },
+      });
+      toast.success('Entry updated successfully');
+      setEditingEntry(null);
+    } catch {
+      toast.error('Failed to update entry');
+    }
   };
 
   const activePdfPreview =
@@ -283,6 +326,7 @@ export function QrWizardPage() {
                 return next;
               });
             }}
+            onEdit={handleOpenEditEntry}
           />
         </div>
       )}
@@ -297,13 +341,7 @@ export function QrWizardPage() {
               <p className="text-sm font-medium text-gray-700 mb-3">Preview Content</p>
               <QrTypeSelector value={previewContentType} onChange={(t) => {
                 setPreviewContentType(t);
-                const defaults: Record<ContentType, QrContentData> = {
-                  url: { type: 'url', url: 'https://example.com' },
-                  text: { type: 'text', text: 'Sample text' },
-                  vcard: { type: 'vcard', first_name: 'John', last_name: 'Doe' },
-                  wifi: { type: 'wifi', ssid: 'MyWifi', encryption: 'WPA', hidden: false },
-                };
-                setPreviewContent(defaults[t]);
+                setPreviewContent(createDefaultContent(t));
               }} />
             </div>
           </Card>
@@ -505,6 +543,48 @@ export function QrWizardPage() {
           </Button>
         )}
       </div>
+
+      <Modal
+        isOpen={!!editingEntry}
+        onClose={() => setEditingEntry(null)}
+        title="Edit entry"
+        description="Update entry details before generating the PDF."
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditingEntry(null)} disabled={updatingEntry}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEntry} loading={updatingEntry}>
+              Save changes
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Label"
+            value={editLabel}
+            onChange={(event) => setEditLabel(event.target.value)}
+            placeholder="Entry label"
+          />
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700">Type</p>
+            <QrTypeSelector
+              value={editContentType}
+              onChange={(type) => {
+                setEditContentType(type);
+                setEditContent(createDefaultContent(type));
+              }}
+            />
+          </div>
+          <QrContentForm
+            contentType={editContentType}
+            value={editContent}
+            onChange={setEditContent}
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

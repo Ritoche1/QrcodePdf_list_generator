@@ -169,3 +169,46 @@ async def test_project_pdf_history_listing_and_download(client: AsyncClient):
     )
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/pdf"
+
+
+@pytest.mark.asyncio
+async def test_pdf_generation_does_not_modify_entry_content_type(client: AsyncClient):
+    r = await client.post("/api/v1/projects", json={"name": "PDF Side Effect Test"})
+    assert r.status_code == 201
+    pid = r.json()["id"]
+
+    entry_payloads = [
+        {
+            "content_type": "url",
+            "content_data": {"url": "https://example.com"},
+            "label": "URL entry",
+        },
+        {
+            "content_type": "text",
+            "content_data": {"text": "Hello"},
+            "label": "Text entry",
+        },
+    ]
+    for payload in entry_payloads:
+        created = await client.post(f"/api/v1/projects/{pid}/entries", json=payload)
+        assert created.status_code == 201
+
+    before = await client.get(f"/api/v1/projects/{pid}/entries")
+    assert before.status_code == 200
+    before_types = {item["id"]: item["content_type"] for item in before.json()["items"]}
+
+    payload = {
+        "layout": {
+            "page_size": "A4",
+            "columns": 2,
+            "rows": 2,
+        }
+    }
+    generated = await client.post(f"/api/v1/projects/{pid}/pdf", json=payload)
+    assert generated.status_code == 200
+
+    after = await client.get(f"/api/v1/projects/{pid}/entries")
+    assert after.status_code == 200
+    after_types = {item["id"]: item["content_type"] for item in after.json()["items"]}
+
+    assert after_types == before_types

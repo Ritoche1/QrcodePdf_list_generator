@@ -1,6 +1,7 @@
 """PDF generation routes."""
 from __future__ import annotations
 
+import copy
 import json
 import re
 from typing import Any
@@ -23,6 +24,10 @@ from app.services.pdf_service import (
 )
 
 router = APIRouter(tags=["pdf"])
+
+
+def _enum_value(value: Any) -> Any:
+    return value.value if hasattr(value, "value") else value
 
 
 async def _get_project_entries(
@@ -48,19 +53,34 @@ async def _get_project_entries(
             status_code=400, detail="No entries found for PDF generation"
         )
 
-    return [
-        {
-            "id": e.id,
-            "project_id": e.project_id,
-            "content_type": e.content_type,
-            "content_data": e.content_data,
-            "label": e.label,
-            "serial_number": e.serial_number,
-            "status": e.status,
-            "tags": e.tags,
-        }
-        for e in entries
-    ]
+    normalized_entries: list[dict[str, Any]] = []
+    for e in entries:
+        content_data = e.content_data
+        if isinstance(content_data, str):
+            content_data = json.loads(content_data)
+        else:
+            # Ensure downstream processing cannot mutate ORM-attached objects.
+            content_data = copy.deepcopy(content_data)
+
+        tags = e.tags
+        if isinstance(tags, str):
+            tags = json.loads(tags)
+        else:
+            tags = copy.deepcopy(tags)
+
+        normalized_entries.append(
+            {
+                "id": e.id,
+                "project_id": e.project_id,
+                "content_type": _enum_value(e.content_type),
+                "content_data": content_data,
+                "label": e.label,
+                "serial_number": e.serial_number,
+                "status": _enum_value(e.status),
+                "tags": tags,
+            }
+        )
+    return normalized_entries
 
 
 @router.post("/projects/{project_id}/pdf")

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,6 +28,7 @@ from app.services.qr_service import (
 )
 
 router = APIRouter(prefix="/qr", tags=["qr"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/preview")
@@ -100,7 +102,7 @@ async def qr_generate(
             qr_image_path=entry.qr_image_path,
             qr_status=QrGenerationStatus.generated,
             qr_data_hash=data_hash,
-            qr_generated_at=entry.qr_generated_at or datetime.now(timezone.utc),
+            qr_generated_at=entry.qr_generated_at or entry.updated_at,
             regenerated=False,
             message="QR code reused from cache",
         )
@@ -136,6 +138,7 @@ async def qr_generate(
         entry.qr_status = QrGenerationStatus.error
         entry.qr_error_message = str(exc)[:500]
         await session.flush()
+        logger.exception("Failed to generate QR code for entry_id=%s", entry_id)
         raise HTTPException(status_code=500, detail="Failed to generate QR code")
 
 

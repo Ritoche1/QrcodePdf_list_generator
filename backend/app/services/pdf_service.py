@@ -69,13 +69,10 @@ class QRPDFGenerator:
             content_data = json.loads(content_data)
 
         cached_bytes = load_qr_image(entry.get("qr_image_path"))
-        current_hash = compute_qr_data_hash(content_type, content_data)
-        if (
-            cached_bytes is not None
-            and entry.get("qr_status") == "generated"
-            and entry.get("qr_data_hash") == current_hash
-        ):
-            return cached_bytes
+        if cached_bytes is not None and entry.get("qr_status") == "generated":
+            current_hash = compute_qr_data_hash(content_type, content_data)
+            if entry.get("qr_data_hash") == current_hash:
+                return cached_bytes
 
         content, _ = build_qr_content(content_type, content_data)
         image_bytes, _ = generate_qr_png(
@@ -262,15 +259,25 @@ def generate_export_zip(
                 content_data = json.loads(content_data)
 
             try:
-                cached_bytes = load_qr_image(entry.get("qr_image_path"))
-                current_hash = compute_qr_data_hash(content_type, content_data)
                 content, _ = build_qr_content(content_type, content_data)
-                image_bytes = cached_bytes
+                current_hash = compute_qr_data_hash(content_type, content_data)
                 if (
-                    image_bytes is None
-                    or entry.get("qr_status") != "generated"
-                    or entry.get("qr_data_hash") != current_hash
+                    entry.get("qr_status") == "generated"
+                    and entry.get("qr_data_hash") == current_hash
                 ):
+                    cached_bytes = load_qr_image(entry.get("qr_image_path"))
+                    if cached_bytes is not None:
+                        image_bytes = cached_bytes
+                    else:
+                        image_bytes, _ = generate_qr_png(
+                            content,
+                            fg_color=fg_color,
+                            bg_color=bg_color,
+                            error_correction=error_correction,
+                            box_size=box_size,
+                            border=border,
+                        )
+                else:
                     image_bytes, _ = generate_qr_png(
                         content,
                         fg_color=fg_color,

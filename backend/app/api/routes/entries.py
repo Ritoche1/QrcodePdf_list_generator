@@ -204,9 +204,12 @@ async def update_entry(
         raise HTTPException(status_code=404, detail="Entry not found")
 
     content_changed = False
-    if payload.content_type is not None and payload.content_type != entry.content_type:
-        entry.content_type = payload.content_type
-        content_changed = True
+    if payload.content_type is not None:
+        payload_content_type = getattr(payload.content_type, "value", payload.content_type)
+        current_content_type = getattr(entry.content_type, "value", entry.content_type)
+        if payload_content_type != current_content_type:
+            entry.content_type = payload_content_type
+            content_changed = True
     if payload.content_data is not None:
         entry.content_data = json.dumps(payload.content_data)
         content_changed = True
@@ -226,7 +229,11 @@ async def update_entry(
         current_content_type = getattr(entry.content_type, "value", entry.content_type)
         current_hash = compute_qr_data_hash(str(current_content_type), content_data)
 
-        if entry.qr_image_path and (not entry.qr_data_hash or entry.qr_data_hash != current_hash):
+        if (
+            entry.qr_image_path
+            and entry.qr_status == QrGenerationStatus.generated
+            and (not entry.qr_data_hash or entry.qr_data_hash != current_hash)
+        ):
             entry.qr_status = QrGenerationStatus.outdated
         elif not entry.qr_image_path:
             entry.qr_status = QrGenerationStatus.not_generated

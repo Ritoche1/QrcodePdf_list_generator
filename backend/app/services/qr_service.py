@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 import json
 import re
-from hashlib import sha256
+from hmac import new as hmac_new
 from pathlib import Path
 from typing import Any
 
@@ -187,7 +187,7 @@ def compute_qr_data_hash(content_type: str, content_data: dict[str, Any]) -> str
     """Build normalized QR payload and return deterministic content hash."""
     normalized_type = getattr(content_type, "value", content_type)
     content, _ = build_qr_content(str(normalized_type), content_data)
-    return sha256(content.encode("utf-8")).hexdigest()
+    return hmac_new(b"qr-cache-v1", content.encode("utf-8"), "sha256").hexdigest()
 
 
 def check_duplicate_content(

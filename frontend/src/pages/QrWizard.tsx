@@ -425,7 +425,7 @@ export function QrWizardPage() {
                     type="radio"
                     name="pdf-qr-render-mode"
                     value="single_design"
-                    checked={pdfLayout.qr_render_mode !== 'per_entry_cached'}
+                    checked={pdfLayout.qr_render_mode === 'single_design'}
                     onChange={() => setPdfLayout((prev) => ({ ...prev, qr_render_mode: 'single_design' }))}
                     className="mt-0.5"
                   />

@@ -61,7 +61,6 @@ const defaultPdfLayout: PdfLayoutOptions = {
   spacing: 5,
   show_labels: true,
   font_size: 8,
-  qr_render_mode: 'single_design',
 };
 const MAX_GENERATED_PDFS = 10;
 
@@ -310,6 +309,8 @@ export function QrWizardPage() {
   const stepIndex = WIZARD_STEPS.findIndex((s) => s.key === step);
   const isLastStep = stepIndex === WIZARD_STEPS.length - 1;
   const canSelectPreviewType = selectedIds.size === 1 || (selectedIds.size === 0 && total === 1);
+  const hasChosenQrRenderMode =
+    pdfLayout.qr_render_mode === 'single_design' || pdfLayout.qr_render_mode === 'per_entry_cached';
 
   return (
     <div>
@@ -388,7 +389,41 @@ export function QrWizardPage() {
       {/* ─── Step: Design QR ─────────────────────────────────────────────── */}
       {step === 'design' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
+          <Card className="relative overflow-hidden">
+            {!hasChosenQrRenderMode && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/55 backdrop-blur-sm p-4">
+                <div className="w-full max-w-xl rounded-2xl border border-indigo-200/70 bg-white/95 shadow-lg p-4 sm:p-5">
+                  <p className="text-sm font-semibold text-gray-800 text-center">
+                    Choose PDF QR mode first
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500 text-center">
+                    Select left or right to continue editing QR options.
+                  </p>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPdfLayout((prev) => ({ ...prev, qr_render_mode: 'per_entry_cached' }))}
+                      className="group rounded-xl border border-gray-200 bg-white p-4 text-left transition-all duration-200 hover:border-indigo-300 hover:bg-indigo-50/60 hover:-translate-y-0.5"
+                    >
+                      <p className="text-sm font-semibold text-gray-800">Per-entry cached</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Use each entry&apos;s current cached QR, fallback to standard QR if unavailable.
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPdfLayout((prev) => ({ ...prev, qr_render_mode: 'single_design' }))}
+                      className="group rounded-xl border border-gray-200 bg-white p-4 text-left transition-all duration-200 hover:border-indigo-300 hover:bg-indigo-50/60 hover:-translate-y-0.5"
+                    >
+                      <p className="text-sm font-semibold text-gray-800">Single design</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Apply one selected design/template to every QR in the PDF.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <h3 className="text-sm font-semibold text-gray-700 mb-4">QR Design Options</h3>
             <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
               <div className="flex items-center gap-2">
@@ -656,6 +691,7 @@ export function QrWizardPage() {
         {!isLastStep ? (
           <Button
             onClick={goNext}
+            disabled={step === 'design' && !hasChosenQrRenderMode}
             rightIcon={<ChevronRight className="w-4 h-4" />}
           >
             Continue

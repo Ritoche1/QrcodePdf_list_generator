@@ -460,10 +460,10 @@ export function ProjectDetailPage() {
               disabled={!qrPreviewEntry || !qrPreviewUrl}
               onClick={() => {
                 if (!qrPreviewEntry || !qrPreviewUrl) return;
-                const link = document.createElement('a');
-                link.href = qrPreviewUrl;
-                link.download = resolveEntryPngName(qrPreviewEntry);
-                link.click();
+                fetch(qrPreviewUrl)
+                  .then((response) => response.blob())
+                  .then((blob) => downloadBlob(blob, resolveEntryPngName(qrPreviewEntry)))
+                  .catch(() => toast.error('Failed to download QR PNG'));
               }}
             >
               Download PNG

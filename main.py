@@ -63,6 +63,14 @@ def configure_secret_key(flask_app):
 configure_secret_key(app)
 
 
+def image_filename(name):
+    """Build a safe image filename for an entry name."""
+    safe_name = secure_filename(str(name).strip()).replace(".", "_").strip("_")
+    if not safe_name:
+        safe_name = "entry"
+    return f"{safe_name}.png"
+
+
 def create_qr_code(name, url, image_dir=IMAGE_DIR):
     """Create and save a QR code image from a name/url pair."""
     qr = qrcode.QRCode(
@@ -74,7 +82,7 @@ def create_qr_code(name, url, image_dir=IMAGE_DIR):
     qr.add_data(url)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
-    img.save(os.path.join(image_dir, f"{name}.png"))
+    img.save(os.path.join(image_dir, image_filename(name)))
 
 
 def validate_data(data):
@@ -158,7 +166,7 @@ def generate_pdf_file(data, image_dir=IMAGE_DIR, output_pdf=OUTPUT_PDF):
         y = GRID_MARGIN_Y_MM + CELL_HEIGHT_MM * row_index
 
         image_name = row.get("image_name", row["name"])
-        path = os.path.join(image_dir, f"{image_name}.png")
+        path = os.path.join(image_dir, image_filename(image_name))
         pdf.image(path, x, y, QR_SIZE_MM, QR_SIZE_MM)
         pdf.text(x + LABEL_OFFSET_X_MM, y + LABEL_OFFSET_Y_MM, str(row["name"]))
 

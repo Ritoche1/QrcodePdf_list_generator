@@ -16,7 +16,8 @@ import { ImportModal } from '@/components/entries/ImportModal';
 import { useProject, projectKeys, useUpdateProject } from '@/hooks/useProjects';
 import { useEntries, useDeleteEntry, useBulkDelete, useBulkStatus, useCreateEntry, entryKeys } from '@/hooks/useEntries';
 import { useToastContext } from '@/components/ui/Toast';
-import { importExportApi, downloadBlob } from '@/lib/api';
+import { importExportApi, downloadBlob, qrApi } from '@/lib/api';
+import { useGenerateQr } from '@/hooks/useQrPreview';
 import type { CreateEntry } from '@/types';
 import type { EntryFilters } from '@/types';
 import type { ErrorCorrectionLevel } from '@/types';
@@ -67,6 +68,7 @@ export function ProjectDetailPage() {
   const { mutateAsync: bulkStatus, isPending: isBulkStatusLoading } = useBulkStatus(id!);
   const { mutateAsync: bulkDelete, isPending: isBulkDeleting } = useBulkDelete(id!);
   const { mutateAsync: createEntry, isPending: isCreatingEntry } = useCreateEntry(id!);
+  const { mutateAsync: generateQr, isPending: isGeneratingQr } = useGenerateQr();
 
   const entries = entriesData?.items ?? [];
   const total = entriesData?.total ?? 0;
@@ -157,6 +159,32 @@ export function ProjectDetailPage() {
       setManualEntryOpen(false);
     } catch {
       toast.error('Failed to add entry');
+    }
+  };
+
+  const handleGenerateQr = async (entryId: string) => {
+    try {
+      await generateQr(entryId);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: entryKeys.all(id!) }),
+        queryClient.invalidateQueries({ queryKey: projectKeys.detail(id!) }),
+      ]);
+      toast.success('QR code generated');
+    } catch {
+      toast.error('Failed to generate QR code');
+    }
+  };
+
+  const handleBulkGenerateQr = async () => {
+    try {
+      await qrApi.generateBulk(Array.from(selectedIds));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: entryKeys.all(id!) }),
+        queryClient.invalidateQueries({ queryKey: projectKeys.detail(id!) }),
+      ]);
+      toast.success(`Triggered QR generation for ${selectedIds.size} entries`);
+    } catch {
+      toast.error('Failed to generate QR codes');
     }
   };
 
@@ -313,6 +341,7 @@ export function ProjectDetailPage() {
         onSelectAll={handleSelectAll}
         onSelectRow={handleSelectRow}
         onDelete={(entry) => setDeleteEntryId(entry.id)}
+        onGenerateQr={(entry) => handleGenerateQr(entry.id)}
       />
 
       {/* Bulk actions floating bar */}
@@ -321,7 +350,8 @@ export function ProjectDetailPage() {
         onClearSelection={() => setSelectedIds(new Set())}
         onChangeStatus={handleBulkStatus}
         onDelete={() => setBulkDeleteConfirmOpen(true)}
-        loading={isBulkStatusLoading || isBulkDeleting}
+        onGenerateQr={handleBulkGenerateQr}
+        loading={isBulkStatusLoading || isBulkDeleting || isGeneratingQr}
       />
 
       {/* Import modal */}

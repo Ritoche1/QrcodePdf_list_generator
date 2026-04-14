@@ -86,13 +86,25 @@ export function EntryTable({
       accessor: (row) => (
         <span className={clsx(
           'inline-flex items-center gap-1 text-xs font-medium',
-          row.qr_generated ? 'text-green-600' : 'text-gray-400'
+          row.qr_status === 'generated'
+            ? 'text-green-600'
+            : row.qr_status === 'outdated'
+            ? 'text-amber-600'
+            : row.qr_status === 'error'
+            ? 'text-red-600'
+            : 'text-gray-400'
         )}>
           <QrCode className="w-3.5 h-3.5" />
-          {row.qr_generated ? 'Ready' : 'Pending'}
+          {row.qr_status === 'generated'
+            ? 'Generated'
+            : row.qr_status === 'outdated'
+            ? 'Outdated'
+            : row.qr_status === 'error'
+            ? 'Error'
+            : 'Not generated'}
         </span>
       ),
-      width: '90px',
+      width: '130px',
     },
     {
       key: 'tags',
@@ -143,13 +155,13 @@ export function EntryTable({
                 onClick={() => setOpenMenuId(null)}
               />
               <div className="absolute right-0 top-8 z-20 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1 overflow-hidden">
-                {!row.qr_generated && onGenerateQr && (
+                {onGenerateQr && (
                   <button
                     onClick={() => { onGenerateQr(row); setOpenMenuId(null); }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
                     <QrCode className="w-4 h-4 text-indigo-500" />
-                    Generate QR
+                    {row.qr_status === 'generated' ? 'Regenerate QR' : 'Generate QR'}
                   </button>
                 )}
                 {onEdit && (

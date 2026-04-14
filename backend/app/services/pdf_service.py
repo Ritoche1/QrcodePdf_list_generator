@@ -13,7 +13,7 @@ from fpdf import FPDF
 from PIL import Image
 
 from app.core.config import settings
-from app.services.qr_service import build_qr_content, generate_qr_png
+from app.services.qr_service import build_qr_content, compute_qr_data_hash, generate_qr_png, load_qr_image
 
 # A4 and Letter dimensions in mm
 PAGE_SIZES = {
@@ -67,6 +67,15 @@ class QRPDFGenerator:
         content_data = entry.get("content_data", {})
         if isinstance(content_data, str):
             content_data = json.loads(content_data)
+
+        cached_bytes = load_qr_image(entry.get("qr_image_path"))
+        current_hash = compute_qr_data_hash(content_type, content_data)
+        if (
+            cached_bytes is not None
+            and entry.get("qr_status") == "generated"
+            and entry.get("qr_data_hash") == current_hash
+        ):
+            return cached_bytes
 
         content, _ = build_qr_content(content_type, content_data)
         image_bytes, _ = generate_qr_png(
@@ -253,15 +262,23 @@ def generate_export_zip(
                 content_data = json.loads(content_data)
 
             try:
+                cached_bytes = load_qr_image(entry.get("qr_image_path"))
+                current_hash = compute_qr_data_hash(content_type, content_data)
                 content, _ = build_qr_content(content_type, content_data)
-                image_bytes, _ = generate_qr_png(
-                    content,
-                    fg_color=fg_color,
-                    bg_color=bg_color,
-                    error_correction=error_correction,
-                    box_size=box_size,
-                    border=border,
-                )
+                image_bytes = cached_bytes
+                if (
+                    image_bytes is None
+                    or entry.get("qr_status") != "generated"
+                    or entry.get("qr_data_hash") != current_hash
+                ):
+                    image_bytes, _ = generate_qr_png(
+                        content,
+                        fg_color=fg_color,
+                        bg_color=bg_color,
+                        error_correction=error_correction,
+                        box_size=box_size,
+                        border=border,
+                    )
                 entry_id = entry.get("id", "unknown")
                 label = entry.get("label") or f"entry_{entry_id}"
                 # Sanitize filename and include ID to avoid duplicates

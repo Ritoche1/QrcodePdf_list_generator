@@ -10,7 +10,7 @@ from sqlalchemy import and_, func, or_, select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.models.entry import Entry, EntryStatus
+from app.models.entry import Entry, EntryStatus, QrGenerationStatus
 from app.models.project import Project
 from app.schemas.entry import (
     BulkStatusUpdate,
@@ -21,6 +21,7 @@ from app.schemas.entry import (
     EntryResponse,
     EntryUpdate,
 )
+from app.services.qr_service import compute_qr_data_hash
 
 router = APIRouter(tags=["entries"])
 
@@ -44,6 +45,10 @@ def _entry_to_response(entry: Entry) -> EntryResponse:
         tags=tags,
         serial_number=entry.serial_number,
         qr_image_path=entry.qr_image_path,
+        qr_status=entry.qr_status,
+        qr_data_hash=entry.qr_data_hash,
+        qr_generated_at=entry.qr_generated_at,
+        qr_error_message=entry.qr_error_message,
         created_at=entry.created_at,
         updated_at=entry.updated_at,
     )
@@ -145,6 +150,7 @@ async def create_entry(
         status=payload.status,
         tags=json.dumps(payload.tags),
         serial_number=payload.serial_number,
+        qr_status=QrGenerationStatus.not_generated,
     )
     session.add(entry)
     await session.flush()
@@ -174,6 +180,7 @@ async def create_entries_bulk(
             status=item.status,
             tags=json.dumps(item.tags),
             serial_number=item.serial_number,
+            qr_status=QrGenerationStatus.not_generated,
         )
         session.add(entry)
         entries.append(entry)
@@ -196,10 +203,13 @@ async def update_entry(
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
 
-    if payload.content_type is not None:
+    content_changed = False
+    if payload.content_type is not None and payload.content_type != entry.content_type:
         entry.content_type = payload.content_type
+        content_changed = True
     if payload.content_data is not None:
         entry.content_data = json.dumps(payload.content_data)
+        content_changed = True
     if payload.label is not None:
         entry.label = payload.label
     if payload.status is not None:
@@ -208,6 +218,19 @@ async def update_entry(
         entry.tags = json.dumps(payload.tags)
     if payload.serial_number is not None:
         entry.serial_number = payload.serial_number
+
+    if content_changed:
+        content_data = entry.content_data
+        if isinstance(content_data, str):
+            content_data = json.loads(content_data)
+        current_content_type = getattr(entry.content_type, "value", entry.content_type)
+        current_hash = compute_qr_data_hash(str(current_content_type), content_data)
+
+        if entry.qr_image_path and (not entry.qr_data_hash or entry.qr_data_hash != current_hash):
+            entry.qr_status = QrGenerationStatus.outdated
+        elif not entry.qr_image_path:
+            entry.qr_status = QrGenerationStatus.not_generated
+        entry.qr_error_message = None
 
     await session.flush()
     await session.refresh(entry)

@@ -43,6 +43,9 @@ export interface Entry {
   tags: string[];
   qr_generated: boolean;
   qr_image_url?: string;
+  qr_status: 'not_generated' | 'generated' | 'outdated' | 'error';
+  qr_generated_at?: string;
+  qr_error_message?: string;
   created_at: string;
   updated_at: string;
 }

@@ -115,6 +115,7 @@ async def generate_pdf(
         or project.default_qr_error_correction
         or STANDARD_QR_ERROR_CORRECTION
     )
+    layout["qr_render_mode"] = payload.qr_render_mode
 
     generator = QRPDFGenerator(layout)
     pdf_bytes, page_count = generator.generate_pdf(entries)
@@ -208,6 +209,7 @@ async def pdf_preview(
         or project.default_qr_error_correction
         or STANDARD_QR_ERROR_CORRECTION
     )
+    layout["qr_render_mode"] = payload.qr_render_mode
 
     generator = QRPDFGenerator(layout)
     png_bytes = generator.generate_preview_png(entries)

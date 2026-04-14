@@ -58,6 +58,7 @@ class QRPDFGenerator:
         self.fg_color = layout.get("fg_color", STANDARD_QR_FOREGROUND_COLOR)
         self.bg_color = layout.get("bg_color", STANDARD_QR_BACKGROUND_COLOR)
         self.error_correction = layout.get("error_correction", STANDARD_QR_ERROR_CORRECTION)
+        self.qr_render_mode = layout.get("qr_render_mode", "single_design")
 
         # Determine page dimensions
         w, h = PAGE_SIZES.get(self.page_size, PAGE_SIZES["A4"])
@@ -73,11 +74,23 @@ class QRPDFGenerator:
         if isinstance(content_data, str):
             content_data = json.loads(content_data)
 
-        cached_bytes = load_qr_image(entry.get("qr_image_path"))
-        if cached_bytes is not None and entry.get("qr_status") == "generated":
-            current_hash = compute_qr_data_hash(content_type, content_data)
-            if entry.get("qr_data_hash") == current_hash:
-                return cached_bytes
+        if self.qr_render_mode == "per_entry_cached":
+            cached_bytes = load_qr_image(entry.get("qr_image_path"))
+            if cached_bytes is not None and entry.get("qr_status") == "generated":
+                current_hash = compute_qr_data_hash(content_type, content_data)
+                if entry.get("qr_data_hash") == current_hash:
+                    return cached_bytes
+
+            content, _ = build_qr_content(content_type, content_data)
+            image_bytes, _ = generate_qr_png(
+                content,
+                fg_color=STANDARD_QR_FOREGROUND_COLOR,
+                bg_color=STANDARD_QR_BACKGROUND_COLOR,
+                error_correction=STANDARD_QR_ERROR_CORRECTION,
+                box_size=10,
+                border=4,
+            )
+            return image_bytes
 
         content, _ = build_qr_content(content_type, content_data)
         image_bytes, _ = generate_qr_png(

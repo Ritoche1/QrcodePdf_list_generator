@@ -1,4 +1,5 @@
 export type PageSize = 'A4' | 'Letter' | 'Legal' | 'A3';
+export type PdfQrRenderMode = 'single_design' | 'per_entry_cached';
 
 export interface PdfLayoutOptions {
   page_size: PageSize;
@@ -13,6 +14,7 @@ export interface PdfLayoutOptions {
   show_labels: boolean;
   font_size?: number;
   entry_ids?: string[];
+  qr_render_mode?: PdfQrRenderMode;
 }
 
 export interface ProjectPdfFile {

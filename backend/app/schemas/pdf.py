@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 class PDFLayoutOptions(BaseModel):
@@ -23,6 +25,15 @@ class PDFLayoutOptions(BaseModel):
 
 class PDFGenerateRequest(BaseModel):
     layout: PDFLayoutOptions = Field(default_factory=PDFLayoutOptions)
+    qr_render_mode: Literal["single_design", "per_entry_cached"] = Field(
+        "single_design",
+        description=(
+            "QR rendering mode: "
+            "'single_design' applies one selected design to all entries; "
+            "'per_entry_cached' uses each entry's cached QR image and falls back "
+            "to the standard QR design when cache is missing/outdated."
+        ),
+    )
     entry_ids: list[int] | None = Field(
         None,
         description="Specific entry IDs to include; None means all entries",

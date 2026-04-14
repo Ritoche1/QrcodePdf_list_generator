@@ -146,7 +146,8 @@ All endpoints are under `/api/v1/`. Full OpenAPI docs are available at [http://l
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/qr/preview` | Generate a QR preview (returns PNG) |
-| `POST` | `/qr/generate/{entry_id}` | Generate and store QR for an entry |
+| `POST` | `/qr/generate/{entry_id}` | Generate/store QR for an entry (reuses cache when up-to-date) |
+| `POST` | `/qr/generate-bulk` | Generate/store QR codes for multiple entries |
 
 ### PDF Generation
 

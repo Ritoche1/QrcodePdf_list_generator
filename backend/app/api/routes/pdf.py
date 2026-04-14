@@ -83,6 +83,9 @@ async def _get_project_entries(
                 "serial_number": e.serial_number,
                 "status": _enum_value(e.status),
                 "tags": tags,
+                "qr_image_path": e.qr_image_path,
+                "qr_status": _enum_value(e.qr_status),
+                "qr_data_hash": e.qr_data_hash,
             }
         )
     return project, normalized_entries

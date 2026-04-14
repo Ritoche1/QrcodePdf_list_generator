@@ -74,6 +74,33 @@ async def create_all_tables() -> None:
                         f"VARCHAR(1) NOT NULL DEFAULT '{STANDARD_QR_ERROR_CORRECTION}'"
                     )
                 )
+            result = await conn.execute(text("PRAGMA table_info(entries)"))
+            entry_columns = {row[1] for row in result.fetchall()}
+            if "qr_status" not in entry_columns:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE entries ADD COLUMN qr_status "
+                        "VARCHAR(20) NOT NULL DEFAULT 'not_generated'"
+                    )
+                )
+            if "qr_data_hash" not in entry_columns:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE entries ADD COLUMN qr_data_hash VARCHAR(64)"
+                    )
+                )
+            if "qr_generated_at" not in entry_columns:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE entries ADD COLUMN qr_generated_at DATETIME"
+                    )
+                )
+            if "qr_error_message" not in entry_columns:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE entries ADD COLUMN qr_error_message VARCHAR(500)"
+                    )
+                )
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

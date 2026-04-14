@@ -14,6 +14,13 @@ class EntryStatus(str, enum.Enum):
     archived = "archived"
 
 
+class QrGenerationStatus(str, enum.Enum):
+    not_generated = "not_generated"
+    generated = "generated"
+    outdated = "outdated"
+    error = "error"
+
+
 class ContentType(str, enum.Enum):
     url = "url"
     text = "text"
@@ -49,6 +56,15 @@ class Entry(Base):
     tags: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     # Path to the generated QR image file (relative to files_dir)
     qr_image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    qr_status: Mapped[str] = mapped_column(
+        Enum(QrGenerationStatus),
+        nullable=False,
+        default=QrGenerationStatus.not_generated,
+        index=True,
+    )
+    qr_data_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    qr_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    qr_error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # Optional serial number for printing
     serial_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

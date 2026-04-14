@@ -145,7 +145,7 @@ function normalizeEntryContent(
   };
 }
 
-function normalizeEntry(payload: Partial<Entry> & { id?: string | number }): Entry {
+function normalizeEntry(payload: Partial<Entry> & { id?: string | number; qr_image_path?: string }): Entry {
   const rawContent =
     (payload as Partial<Entry> & { content_data?: Entry['content'] }).content ??
     (payload as Partial<Entry> & { content_data?: Entry['content'] }).content_data;
@@ -159,8 +159,13 @@ function normalizeEntry(payload: Partial<Entry> & { id?: string | number }): Ent
     content: normalizeEntryContent(contentType, rawContent),
     status: payload.status ?? 'draft',
     tags: Array.isArray(payload.tags) ? payload.tags : [],
-    qr_generated: payload.qr_generated ?? Boolean(payload.qr_image_url),
-    qr_image_url: payload.qr_image_url ?? undefined,
+    qr_generated:
+      payload.qr_generated ??
+      (payload.qr_status ? payload.qr_status === 'generated' : Boolean(payload.qr_image_url ?? payload.qr_image_path)),
+    qr_status: payload.qr_status ?? (payload.qr_image_url ?? payload.qr_image_path ? 'generated' : 'not_generated'),
+    qr_image_url: payload.qr_image_url ?? payload.qr_image_path ?? undefined,
+    qr_generated_at: payload.qr_generated_at ?? undefined,
+    qr_error_message: payload.qr_error_message ?? undefined,
     created_at: payload.created_at ?? new Date(0).toISOString(),
     updated_at: payload.updated_at ?? payload.created_at ?? new Date(0).toISOString(),
   };
@@ -395,6 +400,16 @@ export const qrApi = {
   generate: async (entryId: string): Promise<Entry> => {
     const { data } = await apiClient.post<Entry>(`/qr/generate/${entryId}`, {});
     return normalizeEntry(data);
+  },
+
+  generateBulk: async (entryIds: string[]): Promise<void> => {
+    const normalizedEntryIds = entryIds
+      .filter((entryId): entryId is string => typeof entryId === 'string' && entryId.trim().length > 0)
+      .map((entryId) => Number(entryId))
+      .filter((entryId) => Number.isFinite(entryId) && entryId > 0);
+    await apiClient.post('/qr/generate-bulk', {
+      entry_ids: normalizedEntryIds,
+    });
   },
 };
 

@@ -162,6 +162,79 @@ async def test_entry_lifecycle(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_qr_generation_cache_and_outdated_state(client: AsyncClient):
+    project = await client.post("/api/v1/projects", json={"name": "QR cache test"})
+    assert project.status_code == 201
+    pid = project.json()["id"]
+
+    created = await client.post(
+        f"/api/v1/projects/{pid}/entries",
+        json={
+            "content_type": "text",
+            "content_data": {"text": "Cache me"},
+            "label": "Cache Entry",
+        },
+    )
+    assert created.status_code == 201
+    entry = created.json()
+    entry_id = entry["id"]
+    assert entry["qr_status"] == "not_generated"
+
+    first = await client.post(f"/api/v1/qr/generate/{entry_id}", json={})
+    assert first.status_code == 200
+    assert first.json()["regenerated"] is True
+
+    second = await client.post(f"/api/v1/qr/generate/{entry_id}", json={})
+    assert second.status_code == 200
+    assert second.json()["regenerated"] is False
+
+    updated = await client.put(
+        f"/api/v1/entries/{entry_id}",
+        json={"content_data": {"text": "Cache me v2"}},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["qr_status"] == "outdated"
+
+    regenerated = await client.post(f"/api/v1/qr/generate/{entry_id}", json={})
+    assert regenerated.status_code == 200
+    assert regenerated.json()["regenerated"] is True
+
+    listed = await client.get(f"/api/v1/projects/{pid}/entries")
+    assert listed.status_code == 200
+    saved_entry = listed.json()["items"][0]
+    assert saved_entry["qr_status"] == "generated"
+    assert saved_entry["qr_data_hash"]
+    assert saved_entry["qr_generated_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_qr_bulk_generation(client: AsyncClient):
+    project = await client.post("/api/v1/projects", json={"name": "QR bulk test"})
+    assert project.status_code == 201
+    pid = project.json()["id"]
+
+    entry_ids = []
+    for index in range(2):
+        created = await client.post(
+            f"/api/v1/projects/{pid}/entries",
+            json={
+                "content_type": "text",
+                "content_data": {"text": f"Bulk {index}"},
+                "label": f"Bulk {index}",
+            },
+        )
+        assert created.status_code == 201
+        entry_ids.append(created.json()["id"])
+
+    bulk = await client.post("/api/v1/qr/generate-bulk", json={"entry_ids": entry_ids})
+    assert bulk.status_code == 200
+    payload = bulk.json()
+    assert payload["processed"] == 2
+    assert payload["errors"] == 0
+    assert payload["generated"] == 2
+
+
+@pytest.mark.asyncio
 async def test_stats(client: AsyncClient):
     r = await client.get("/api/v1/stats")
     assert r.status_code == 200

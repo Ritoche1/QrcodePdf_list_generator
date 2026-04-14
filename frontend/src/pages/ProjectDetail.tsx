@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Upload, Download, QrCode, FileDown, Wand2, Pencil,
+  Plus, Download, FileDown, Wand2, Pencil,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
 import { Button, Card, Modal, ConfirmModal } from '@/components/ui';
@@ -130,14 +130,29 @@ export function ProjectDetailPage() {
         ]}
         actions={
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<Upload className="w-4 h-4" />}
-              onClick={() => setImportOpen(true)}
-            >
-              Import
-            </Button>
+            <div className="relative group">
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<Plus className="w-4 h-4" />}
+              >
+                + Add
+              </Button>
+              <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 hidden group-hover:block z-20">
+                <button
+                  onClick={() => setImportOpen(true)}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Import
+                </button>
+                <button
+                  onClick={() => setManualEntryOpen(true)}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Add Entry
+                </button>
+              </div>
+            </div>
             <div className="relative group">
               <Button
                 variant="outline"
@@ -164,22 +179,6 @@ export function ProjectDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              leftIcon={<Plus className="w-4 h-4" />}
-              onClick={() => setManualEntryOpen(true)}
-            >
-              Add Entry
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<QrCode className="w-4 h-4" />}
-              onClick={() => navigate(`/projects/${id}/generate`)}
-            >
-              Generate PDF
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
               leftIcon={<FileDown className="w-4 h-4" />}
               onClick={() => navigate(`/projects/${id}/pdfs`)}
             >
@@ -190,7 +189,7 @@ export function ProjectDetailPage() {
               leftIcon={<Plus className="w-4 h-4" />}
               onClick={() => navigate(`/projects/${id}/generate`)}
             >
-              Add & Generate
+              + Generate
             </Button>
           </div>
         }

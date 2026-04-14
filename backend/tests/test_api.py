@@ -5,10 +5,12 @@ Run with: pytest tests/ -v
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import pathlib
 import shutil
 import tempfile
+import zipfile
 
 import pytest
 import pytest_asyncio
@@ -349,3 +351,38 @@ async def test_pdf_generation_uses_project_default_design_when_not_provided(
     assert captured_layout["fg_color"] == "#0f172a"
     assert captured_layout["bg_color"] == "#f1f5f9"
     assert captured_layout["error_correction"] == "Q"
+
+
+@pytest.mark.asyncio
+async def test_export_zip_respects_selected_entry_ids(client: AsyncClient):
+    project_resp = await client.post("/api/v1/projects", json={"name": "ZIP Selection Test"})
+    assert project_resp.status_code == 201
+    pid = project_resp.json()["id"]
+
+    entry_ids: list[int] = []
+    for label in ["one", "two"]:
+        created = await client.post(
+            f"/api/v1/projects/{pid}/entries",
+            json={
+                "content_type": "text",
+                "content_data": {"text": f"value-{label}"},
+                "label": label,
+            },
+        )
+        assert created.status_code == 201
+        entry_ids.append(created.json()["id"])
+
+    export_resp = await client.post(
+        f"/api/v1/projects/{pid}/export",
+        json={
+            "entry_ids": [entry_ids[0]],
+            "format": "png",
+        },
+    )
+    assert export_resp.status_code == 200
+    assert export_resp.headers["content-type"] == "application/zip"
+
+    with zipfile.ZipFile(io.BytesIO(export_resp.content)) as zf:
+        names = zf.namelist()
+        assert len(names) == 1
+        assert names[0].startswith(f"{entry_ids[0]}_")

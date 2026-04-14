@@ -29,6 +29,8 @@ interface EntryTableProps {
   onEdit?: (entry: Entry) => void;
   onDelete?: (entry: Entry) => void;
   onGenerateQr?: (entry: Entry) => void;
+  onPreviewQr?: (entry: Entry) => void;
+  onDownloadQr?: (entry: Entry) => void;
 }
 
 export function EntryTable({
@@ -43,6 +45,8 @@ export function EntryTable({
   onEdit,
   onDelete,
   onGenerateQr,
+  onPreviewQr,
+  onDownloadQr,
 }: EntryTableProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -150,6 +154,24 @@ export function EntryTable({
                   >
                     <QrCode className="w-4 h-4 text-indigo-500" />
                     Generate QR
+                  </button>
+                )}
+                {onPreviewQr && (
+                  <button
+                    onClick={() => { onPreviewQr(row); setOpenMenuId(null); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <QrCode className="w-4 h-4 text-indigo-500" />
+                    Preview PNG
+                  </button>
+                )}
+                {onDownloadQr && (
+                  <button
+                    onClick={() => { onDownloadQr(row); setOpenMenuId(null); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <QrCode className="w-4 h-4 text-indigo-500" />
+                    Download PNG
                   </button>
                 )}
                 {onEdit && (

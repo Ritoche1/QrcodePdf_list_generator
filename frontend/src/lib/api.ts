@@ -482,10 +482,12 @@ export const importExportApi = {
     return data;
   },
 
-  exportZip: async (projectId: string): Promise<Blob> => {
+  exportZip: async (projectId: string, entryIds?: string[]): Promise<Blob> => {
     const { data } = await apiClient.post<Blob>(
       `/projects/${projectId}/export`,
-      {},
+      {
+        entry_ids: entryIds?.map((entryId) => Number(entryId)).filter((entryId) => !Number.isNaN(entryId)),
+      },
       { responseType: 'blob' }
     );
     return data;

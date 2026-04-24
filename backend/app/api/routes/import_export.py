@@ -29,6 +29,11 @@ class ImportConfirmRequest(BaseModel):
     content_type: str = "text"
 
 
+class ExportDataRequest(BaseModel):
+    format: str = "csv"
+    entry_ids: list[int] | None = None
+
+
 @router.post("/projects/{project_id}/import/preview")
 async def import_preview(
     project_id: int,
@@ -170,6 +175,61 @@ async def export_data(
     ]
 
     if format.lower() == "xlsx":
+        data = export_entries_xlsx(entry_dicts)
+        return Response(
+            content=data,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f'attachment; filename="project_{project_id}_entries.xlsx"'
+            },
+        )
+    else:
+        data = export_entries_csv(entry_dicts)
+        return Response(
+            content=data,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f'attachment; filename="project_{project_id}_entries.csv"'
+            },
+        )
+
+
+@router.post("/projects/{project_id}/export/data")
+async def export_data_selected(
+    project_id: int,
+    payload: ExportDataRequest,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Export selected entries as CSV or XLSX. Filters by entry_ids when provided."""
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    stmt = select(Entry).where(Entry.project_id == project_id)
+    if payload.entry_ids:
+        stmt = stmt.where(Entry.id.in_(payload.entry_ids))
+    stmt = stmt.order_by(Entry.created_at)
+
+    result = await session.execute(stmt)
+    entries = result.scalars().all()
+
+    entry_dicts = [
+        {
+            "id": e.id,
+            "project_id": e.project_id,
+            "content_type": e.content_type,
+            "content_data": e.content_data,
+            "label": e.label,
+            "status": e.status,
+            "serial_number": e.serial_number,
+            "tags": e.tags,
+            "created_at": str(e.created_at),
+            "updated_at": str(e.updated_at),
+        }
+        for e in entries
+    ]
+
+    if payload.format.lower() == "xlsx":
         data = export_entries_xlsx(entry_dicts)
         return Response(
             content=data,

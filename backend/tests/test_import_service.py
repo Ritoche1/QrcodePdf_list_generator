@@ -12,7 +12,7 @@ from httpx import ASGITransport, AsyncClient
 from app.services.import_service import import_from_file
 
 TEST_DATA_DIR = tempfile.mkdtemp(prefix="qrtest_import_")
-os.environ.setdefault("DATA_DIR", TEST_DATA_DIR)
+os.environ["DATA_DIR"] = TEST_DATA_DIR  # override any value set by other test modules
 pathlib.Path(TEST_DATA_DIR).mkdir(exist_ok=True)
 
 

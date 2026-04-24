@@ -105,7 +105,9 @@ async def client():
 
 
 @pytest.mark.asyncio
-async def test_import_confirm_infers_per_row_types_when_content_type_not_mapped(client: AsyncClient):
+async def test_import_confirm_infers_per_row_types_when_content_type_not_mapped(
+    client: AsyncClient,
+):
     project = await client.post("/api/v1/projects", json={"name": "Import infer test"})
     assert project.status_code == 201
     project_id = project.json()["id"]

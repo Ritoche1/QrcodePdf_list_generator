@@ -79,6 +79,7 @@ class EntryResponse(BaseModel):
     def parse_content_data(cls, v: Any) -> Any:
         if isinstance(v, str):
             import json
+
             return json.loads(v)
         return v
 
@@ -87,6 +88,7 @@ class EntryResponse(BaseModel):
     def parse_tags(cls, v: Any) -> Any:
         if isinstance(v, str):
             import json
+
             return json.loads(v)
         return v
 

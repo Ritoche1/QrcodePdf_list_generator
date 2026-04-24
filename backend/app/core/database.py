@@ -84,22 +84,12 @@ async def create_all_tables() -> None:
                     )
                 )
             if "qr_data_hash" not in entry_columns:
-                await conn.execute(
-                    text(
-                        "ALTER TABLE entries ADD COLUMN qr_data_hash VARCHAR(64)"
-                    )
-                )
+                await conn.execute(text("ALTER TABLE entries ADD COLUMN qr_data_hash VARCHAR(64)"))
             if "qr_generated_at" not in entry_columns:
-                await conn.execute(
-                    text(
-                        "ALTER TABLE entries ADD COLUMN qr_generated_at DATETIME"
-                    )
-                )
+                await conn.execute(text("ALTER TABLE entries ADD COLUMN qr_generated_at DATETIME"))
             if "qr_error_message" not in entry_columns:
                 await conn.execute(
-                    text(
-                        "ALTER TABLE entries ADD COLUMN qr_error_message VARCHAR(500)"
-                    )
+                    text("ALTER TABLE entries ADD COLUMN qr_error_message VARCHAR(500)")
                 )
 
 

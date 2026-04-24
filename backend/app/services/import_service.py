@@ -1,4 +1,5 @@
 """CSV/XLSX import service using pandas."""
+
 from __future__ import annotations
 
 import io
@@ -6,7 +7,6 @@ import json
 from typing import Any
 
 import pandas as pd
-
 
 # Supported content types and their required fields
 CONTENT_TYPE_FIELDS = {
@@ -19,7 +19,17 @@ CONTENT_TYPE_FIELDS = {
 CONTENT_TYPE_DETECTION_FIELDS: dict[str, set[str]] = {
     "url": {"url"},
     "text": {"text"},
-    "vcard": {"first_name", "last_name", "organization", "title", "phone", "email", "address", "website", "note"},
+    "vcard": {
+        "first_name",
+        "last_name",
+        "organization",
+        "title",
+        "phone",
+        "email",
+        "address",
+        "website",
+        "note",
+    },
     "wifi": {"ssid", "password", "security", "hidden"},
 }
 CONTENT_TYPE_PRIORITY = ("url", "vcard", "wifi", "text")
@@ -190,13 +200,15 @@ def import_from_file(
             preferred_type=preferred_type,
         )
 
-        entries.append({
-            "content_type": resolved_content_type,
-            "content_data": json.dumps(content_data),
-            "label": label,
-            "serial_number": serial_number,
-            "tags": json.dumps(tags),
-            "status": "draft",
-        })
+        entries.append(
+            {
+                "content_type": resolved_content_type,
+                "content_data": json.dumps(content_data),
+                "label": label,
+                "serial_number": serial_number,
+                "tags": json.dumps(tags),
+                "status": "draft",
+            }
+        )
 
     return entries

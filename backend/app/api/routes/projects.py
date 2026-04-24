@@ -1,4 +1,5 @@
 """Project CRUD routes."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -93,9 +94,7 @@ async def get_project(
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Count entries by status
-    total_result = await session.execute(
-        select(func.count()).where(Entry.project_id == project_id)
-    )
+    total_result = await session.execute(select(func.count()).where(Entry.project_id == project_id))
     entry_count = total_result.scalar_one()
 
     generated_result = await session.execute(

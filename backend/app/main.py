@@ -7,9 +7,9 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.database import create_all_tables
 
-
 # Ensure directories exist before the app starts to allow mounting StaticFiles directly
 settings.ensure_dirs()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

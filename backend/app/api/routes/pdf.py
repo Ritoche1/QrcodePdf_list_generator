@@ -1,4 +1,5 @@
 """PDF generation routes."""
+
 from __future__ import annotations
 
 import copy
@@ -20,7 +21,7 @@ from app.core.qr_defaults import (
 )
 from app.models.entry import Entry
 from app.models.project import Project
-from app.schemas.pdf import ExportZipRequest, PDFGenerateRequest, PDFGenerateResponse
+from app.schemas.pdf import ExportZipRequest, PDFGenerateRequest
 from app.services.pdf_service import (
     QRPDFGenerator,
     generate_export_zip,
@@ -54,9 +55,7 @@ async def _get_project_entries(
     entries = result.scalars().all()
 
     if not entries:
-        raise HTTPException(
-            status_code=400, detail="No entries found for PDF generation"
-        )
+        raise HTTPException(status_code=400, detail="No entries found for PDF generation")
 
     normalized_entries: list[dict[str, Any]] = []
     for e in entries:
@@ -124,9 +123,7 @@ async def generate_pdf(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="project_{project_id}.pdf"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="project_{project_id}.pdf"'},
     )
 
 
@@ -173,7 +170,7 @@ async def download_project_pdf(
     if not file_name.startswith(expected_prefix) or not file_name.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Invalid PDF file name")
 
-    timestamp_part = file_name[len(expected_prefix):-4]
+    timestamp_part = file_name[len(expected_prefix) : -4]
     if not re.fullmatch(r"\d{8}T\d{12}Z", timestamp_part):
         raise HTTPException(status_code=400, detail="Invalid PDF file name")
 
@@ -246,7 +243,5 @@ async def export_zip(
     return Response(
         content=zip_bytes,
         media_type="application/zip",
-        headers={
-            "Content-Disposition": f'attachment; filename="project_{project_id}_qrcodes.zip"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="project_{project_id}_qrcodes.zip"'},
     )

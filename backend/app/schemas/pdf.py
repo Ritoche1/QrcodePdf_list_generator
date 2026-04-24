@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+
 class PDFLayoutOptions(BaseModel):
     page_size: str = Field("A4", description="Page size: A4 or Letter")
     orientation: str = Field("portrait", description="portrait or landscape")

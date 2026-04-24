@@ -1,4 +1,5 @@
 """QR code generation routes."""
+
 from __future__ import annotations
 
 import json
@@ -110,8 +111,8 @@ async def qr_generate(
         or payload.border != DEFAULT_QR_BORDER
     )
     if (
-        not has_design_overrides and
-        entry.qr_image_path
+        not has_design_overrides
+        and entry.qr_image_path
         and entry.qr_data_hash == data_hash
         and entry.qr_status == QrGenerationStatus.generated
         and load_qr_image(entry.qr_image_path) is not None

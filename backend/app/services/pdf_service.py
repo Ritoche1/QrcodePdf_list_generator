@@ -1,12 +1,11 @@
 """PDF generation service using fpdf2."""
+
 from __future__ import annotations
 
 import io
 import json
-import math
 import zipfile
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from fpdf import FPDF
@@ -18,7 +17,12 @@ from app.core.qr_defaults import (
     STANDARD_QR_ERROR_CORRECTION,
     STANDARD_QR_FOREGROUND_COLOR,
 )
-from app.services.qr_service import build_qr_content, compute_qr_data_hash, generate_qr_png, load_qr_image
+from app.services.qr_service import (
+    build_qr_content,
+    compute_qr_data_hash,
+    generate_qr_png,
+    load_qr_image,
+)
 
 # A4 and Letter dimensions in mm
 PAGE_SIZES = {
@@ -124,13 +128,11 @@ class QRPDFGenerator:
         page_count = 0
 
         usable_width = self.page_width_mm - 2 * self.margin_mm
-        usable_height = self.page_height_mm - 2 * self.margin_mm
 
         # Calculate actual cell width (with spacing)
         cell_width_mm = (usable_width - (self.columns - 1) * self.spacing_mm) / self.columns
 
         for idx, entry in enumerate(entries):
-            page_idx = idx // items_per_page
             item_idx = idx % items_per_page
             col = item_idx % self.columns
             row = item_idx // self.columns
@@ -149,14 +151,16 @@ class QRPDFGenerator:
                 qr_buf = io.BytesIO(qr_bytes)
                 qr_buf.seek(0)
                 # fpdf2 accepts file-like objects via BytesIO name trick
-                import tempfile, os
+                import os
+                import tempfile
+
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
                     tmp.write(qr_bytes)
                     tmp_path = tmp.name
 
                 pdf.image(tmp_path, x=x, y=y, w=self.qr_size_mm, h=self.qr_size_mm)
                 os.unlink(tmp_path)
-            except Exception as e:
+            except Exception:
                 # Draw a placeholder box on error
                 pdf.set_draw_color(200, 200, 200)
                 pdf.rect(x, y, self.qr_size_mm, self.qr_size_mm)
@@ -198,6 +202,7 @@ class QRPDFGenerator:
         # Convert first page to PNG using pdf2image / fallback to pillow
         try:
             from pdf2image import convert_from_bytes
+
             images = convert_from_bytes(pdf_bytes, first_page=1, last_page=1, dpi=150)
             if images:
                 buf = io.BytesIO()
@@ -245,9 +250,7 @@ def list_project_pdfs(project_id: int) -> list[dict[str, Any]]:
             {
                 "file_name": file_path.name,
                 "size_bytes": stat.st_size,
-                "created_at": datetime.fromtimestamp(
-                    stat.st_mtime, tz=timezone.utc
-                ).isoformat(),
+                "created_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
             }
         )
     return items

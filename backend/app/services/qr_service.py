@@ -1,11 +1,10 @@
 """QR code generation service using the qrcode and Pillow libraries."""
+
 from __future__ import annotations
 
 import io
-import json
 import re
 from hashlib import sha256
-from pathlib import Path
 from typing import Any
 
 import qrcode
@@ -144,8 +143,7 @@ def generate_qr_png(
 
     if len(content.encode("utf-8")) > threshold:
         warnings.append(
-            f"Content is very long ({len(content)} chars). "
-            f"The QR code may be difficult to scan."
+            f"Content is very long ({len(content)} chars). The QR code may be difficult to scan."
         )
 
     qr = qrcode.QRCode(

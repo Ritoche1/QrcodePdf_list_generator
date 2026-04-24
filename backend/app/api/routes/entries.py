@@ -1,21 +1,21 @@
 """Entry CRUD + search/filter routes."""
+
 from __future__ import annotations
 
 import json
 import math
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import and_, func, or_, select, update, delete
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.models.entry import Entry, EntryStatus, QrGenerationStatus
 from app.models.project import Project
 from app.schemas.entry import (
+    BulkDeleteRequest,
     BulkStatusUpdate,
     BulkTagsUpdate,
-    BulkDeleteRequest,
     EntryCreate,
     EntryListResponse,
     EntryResponse,
@@ -158,7 +158,9 @@ async def create_entry(
     return _entry_to_response(entry)
 
 
-@router.post("/projects/{project_id}/entries/bulk", response_model=list[EntryResponse], status_code=201)
+@router.post(
+    "/projects/{project_id}/entries/bulk", response_model=list[EntryResponse], status_code=201
+)
 async def create_entries_bulk(
     project_id: int,
     payload: list[EntryCreate],

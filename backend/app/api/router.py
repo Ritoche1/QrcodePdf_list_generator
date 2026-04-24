@@ -1,4 +1,5 @@
 """Main API router combining all sub-routers."""
+
 from fastapi import APIRouter
 
 from app.api.routes import entries, import_export, pdf, projects, qr, stats

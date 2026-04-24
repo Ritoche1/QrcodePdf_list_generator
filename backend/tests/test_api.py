@@ -2,6 +2,7 @@
 Basic integration tests for the QR Code PDF Generator API.
 Run with: pytest tests/ -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -396,14 +397,23 @@ async def test_qr_generate_uses_project_default_design_when_not_provided(
 
     captured: dict[str, str] = {}
 
-    def fake_generate_qr_png(content: str, fg_color: str, bg_color: str, error_correction: str, box_size: int, border: int):
+    def fake_generate_qr_png(
+        content: str,
+        fg_color: str,
+        bg_color: str,
+        error_correction: str,
+        box_size: int,
+        border: int,
+    ):
         captured["fg_color"] = fg_color
         captured["bg_color"] = bg_color
         captured["error_correction"] = error_correction
         return b"fake-png", []
 
     monkeypatch.setattr("app.api.routes.qr.generate_qr_png", fake_generate_qr_png)
-    monkeypatch.setattr("app.api.routes.qr.save_qr_image", lambda _entry_id, _image_bytes: "qr/test.png")
+    monkeypatch.setattr(
+        "app.api.routes.qr.save_qr_image", lambda _entry_id, _image_bytes: "qr/test.png"
+    )
 
     generated = await client.post(f"/api/v1/qr/generate/{eid}", json={})
     assert generated.status_code == 200

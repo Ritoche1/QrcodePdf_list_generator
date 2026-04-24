@@ -2,4 +2,5 @@ pillow
 qrcode
 fpdf
 pandas
-streamlit
+flask
+openpyxl

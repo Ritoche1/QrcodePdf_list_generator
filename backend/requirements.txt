@@ -1,0 +1,30 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# Database
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+
+# Settings
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# QR code generation
+qrcode[pil]==8.0
+Pillow==11.1.0
+
+# PDF generation
+fpdf2==2.8.1
+
+# PDF to image (for preview — optional, gracefully handled if missing)
+pdf2image==1.17.0
+
+# Data import/export
+pandas==2.2.3
+openpyxl==3.1.5
+xlrd==2.0.1
+
+# Static files
+aiofiles==24.1.0

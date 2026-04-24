@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(pip install *)",
+      "Bash(ruff check *)",
+      "Bash(ruff format *)",
+      "Bash(pytest backend/tests/ -v --tb=short)",
+      "Bash(npm ci *)"
+    ]
+  }
+}

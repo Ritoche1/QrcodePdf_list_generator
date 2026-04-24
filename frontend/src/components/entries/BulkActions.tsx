@@ -80,7 +80,7 @@ export function BulkActions({
           variant="secondary"
           onClick={() => onChangeStatus(status)}
           loading={loading}
-          className="bg-gray-700 text-white hover:bg-gray-600 border-0"
+          className="bg-gray-700 text-white hover:bg-gray-600 border-0 whitespace-nowrap shrink-0"
         >
           <Tag className="w-3.5 h-3.5 mr-1" />
           Set status
@@ -96,7 +96,7 @@ export function BulkActions({
             variant="secondary"
             onClick={onGenerateQr}
             loading={loading}
-            className="bg-indigo-600 text-white hover:bg-indigo-500 border-0"
+            className="bg-indigo-600 text-white hover:bg-indigo-500 border-0 whitespace-nowrap shrink-0"
             leftIcon={<QrCode className="w-3.5 h-3.5" />}
           >
             Generate QR
@@ -112,7 +112,7 @@ export function BulkActions({
             variant="secondary"
             onClick={onDownloadZip}
             loading={loading}
-            className="bg-gray-700 text-white hover:bg-gray-600 border-0"
+            className="bg-gray-700 text-white hover:bg-gray-600 border-0 whitespace-nowrap shrink-0"
             leftIcon={<Download className="w-3.5 h-3.5" />}
           >
             Export QR Codes
@@ -127,7 +127,7 @@ export function BulkActions({
             <Button
               size="sm"
               variant="secondary"
-              className="bg-gray-700 text-white hover:bg-gray-600 border-0"
+              className="bg-gray-700 text-white hover:bg-gray-600 border-0 whitespace-nowrap shrink-0"
               leftIcon={<FileDown className="w-3.5 h-3.5" />}
             >
               Export Data

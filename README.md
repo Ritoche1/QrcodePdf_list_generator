@@ -29,14 +29,6 @@ QRCodePDF is an open-source, self-hosted web application for generating QR codes
 |------------|----------------------|
 | ![Bulk Import](docs/screenshots/bulk-import.png) | ![QR Creator](docs/screenshots/qr-creator.png) |
 
-> **Suggested screenshots to take:**
-> - `dashboard.png` — the projects list / home page
-> - `project-detail.png` — entry table with bulk-actions bar visible
-> - `pdf-builder.png` — the PDF layout wizard (step 2 or 3 with preview)
-> - `qr-design.png` — the per-entry QR design modal (color pickers + error correction)
-> - `bulk-import.png` — the CSV/XLSX import column-mapping step
-> - `qr-creator.png` — the standalone QR creator page
-
 ---
 
 ## Features

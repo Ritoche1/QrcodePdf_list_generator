@@ -7,7 +7,9 @@
       "Bash(ruff check *)",
       "Bash(ruff format *)",
       "Bash(pytest backend/tests/ -v --tb=short)",
-      "Bash(npm ci *)"
+      "Bash(npm ci *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

@@ -524,8 +524,20 @@ export const importExportApi = {
 
   exportData: async (
     projectId: string,
-    format: 'csv' | 'xlsx'
+    format: 'csv' | 'xlsx',
+    entryIds?: string[]
   ): Promise<Blob> => {
+    if (entryIds && entryIds.length > 0) {
+      const normalizedIds = entryIds
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0);
+      const { data } = await apiClient.post<Blob>(
+        `/projects/${projectId}/export/data`,
+        { format, entry_ids: normalizedIds },
+        { responseType: 'blob' }
+      );
+      return data;
+    }
     const { data } = await apiClient.get<Blob>(
       `/projects/${projectId}/export/data`,
       { params: { format }, responseType: 'blob' }

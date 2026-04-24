@@ -2,12 +2,32 @@
 
 > Generate, customize, and export QR codes to print-ready PDFs — all from a clean web interface.
 
+[![CI](https://github.com/Ritoche1/QrcodePdf_list_generator/actions/workflows/ci.yml/badge.svg)](https://github.com/Ritoche1/QrcodePdf_list_generator/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.12-green.svg)
 ![React](https://img.shields.io/badge/react-19-blue.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-5.7-blue.svg)
 
 QRCodePDF is an open-source, self-hosted web application for generating QR codes in bulk and exporting them as professional, print-ready PDF documents. Manage your QR entries in projects, customize designs, preview layouts, and download — no account required.
+
+---
+
+## Screenshots
+
+> **Where to place your screenshots:**
+> Create a `docs/screenshots/` directory and add the images there. Then they'll render automatically in this README.
+
+| Dashboard | Project Detail |
+|-----------|---------------|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Project Detail](docs/screenshots/project-detail.png) |
+
+| PDF Layout Builder | QR Design Options |
+|-------------------|------------------|
+| ![PDF Builder](docs/screenshots/pdf-builder.png) | ![QR Design](docs/screenshots/qr-design.png) |
+
+| Bulk Import | Standalone QR Creator |
+|------------|----------------------|
+| ![Bulk Import](docs/screenshots/bulk-import.png) | ![QR Creator](docs/screenshots/qr-creator.png) |
 
 ---
 
@@ -35,7 +55,8 @@ QRCodePDF is an open-source, self-hosted web application for generating QR codes
 - **Entry status**: track entries through Draft → Generated → Printed → Archived
 - **Tagging**: add tags to entries for filtering and organization
 - **Search & filters**: full-text search, filter by status, tags, and sort by any column
-- **Bulk actions**: select multiple entries to change status, add tags, or delete
+- **Bulk actions**: select multiple entries to change status, generate QR codes, export as ZIP or CSV/XLSX, or delete
+- **Inline editing**: edit any entry's content directly from the project page without entering the PDF wizard
 
 ### Standalone QR Creator
 - Quick single QR code generator — no project needed
@@ -164,7 +185,8 @@ All endpoints are under `/api/v1/`. Full OpenAPI docs are available at [http://l
 |--------|----------|-------------|
 | `POST` | `/projects/{id}/import/preview` | Upload file, get column mapping |
 | `POST` | `/projects/{id}/import/confirm` | Confirm mapping and import |
-| `GET` | `/projects/{id}/export/data` | Export entries as CSV or XLSX |
+| `GET` | `/projects/{id}/export/data` | Export all entries as CSV or XLSX |
+| `POST` | `/projects/{id}/export/data` | Export selected entries as CSV or XLSX |
 
 ### Stats
 

@@ -6,7 +6,6 @@ import { PageHeader } from '@/components/layout';
 import { Button, Card, ConfirmModal, Input } from '@/components/ui';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { QrTypeSelector } from '@/components/qr/QrTypeSelector';
-import { QrContentForm } from '@/components/qr/QrContentForm';
 import { QrDesignOptionsForm } from '@/components/qr/QrDesignOptions';
 import { QrPreview } from '@/components/qr/QrPreview';
 import { PdfLayoutOptionsForm } from '@/components/pdf/PdfLayoutOptions';

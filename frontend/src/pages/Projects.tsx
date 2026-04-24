@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, FolderOpen, Trash2, ArrowRight, QrCode } from 'lucide-react';
 import { PageHeader } from '@/components/layout';
-import { Card, Button, Badge, Input, Modal, EmptyState, ConfirmModal } from '@/components/ui';
+import { Button, Badge, Input, Modal, EmptyState, ConfirmModal } from '@/components/ui';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { useProjects, useCreateProject, useDeleteProject } from '@/hooks/useProjects';
 import { useToastContext } from '@/components/ui/Toast';

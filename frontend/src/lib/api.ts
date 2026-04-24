@@ -1,5 +1,4 @@
 import axios from 'axios';
-import type { AxiosRequestConfig } from 'axios';
 import type {
   Project,
   CreateProject,

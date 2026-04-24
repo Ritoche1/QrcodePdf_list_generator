@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { clsx } from 'clsx';
 import { LoadingSpinner } from '@/components/ui';
 import { pdfApi } from '@/lib/api';

@@ -14,8 +14,9 @@ import { BulkActions } from '@/components/entries/BulkActions';
 import { EntryEditorModal } from '@/components/entries/EntryEditorModal';
 import { ImportModal } from '@/components/entries/ImportModal';
 import { useProject, projectKeys, useUpdateProject } from '@/hooks/useProjects';
-import { useEntries, useDeleteEntry, useBulkDelete, useBulkStatus, useCreateEntry, entryKeys } from '@/hooks/useEntries';
+import { useEntries, useDeleteEntry, useBulkDelete, useBulkStatus, useCreateEntry, useUpdateEntry, entryKeys } from '@/hooks/useEntries';
 import { useGenerateQr } from '@/hooks/useQrPreview';
+import { QrDesignOptionsForm } from '@/components/qr/QrDesignOptions';
 import { useToastContext } from '@/components/ui/Toast';
 import { importExportApi, downloadBlob, qrApi } from '@/lib/api';
 import {
@@ -25,7 +26,7 @@ import {
 } from '@/lib/qrDefaults';
 import type { CreateEntry, Entry } from '@/types';
 import type { EntryFilters } from '@/types';
-import type { ErrorCorrectionLevel } from '@/types';
+import type { ErrorCorrectionLevel, QrDesignOptions } from '@/types';
 
 interface ProjectSettingsForm {
   name: string;
@@ -55,6 +56,7 @@ export function ProjectDetailPage() {
   // Modals
   const [importOpen, setImportOpen] = useState(false);
   const [manualEntryOpen, setManualEntryOpen] = useState(false);
+  const [editEntry, setEditEntry] = useState<Entry | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
@@ -63,7 +65,12 @@ export function ProjectDetailPage() {
   const [qrPreviewUrl, setQrPreviewUrl] = useState<string | null>(null);
   const [qrPreviewLoading, setQrPreviewLoading] = useState(false);
   const [qrDesignEntry, setQrDesignEntry] = useState<Entry | null>(null);
-  const [qrDesignColor, setQrDesignColor] = useState(STANDARD_QR_FOREGROUND_COLOR);
+  const [qrDesignOptions, setQrDesignOptions] = useState<QrDesignOptions>({
+    foreground_color: STANDARD_QR_FOREGROUND_COLOR,
+    background_color: STANDARD_QR_BACKGROUND_COLOR,
+    error_correction: STANDARD_QR_ERROR_CORRECTION,
+    size: 400,
+  });
   const [qrDesignPreviewUrl, setQrDesignPreviewUrl] = useState<string | null>(null);
   const [qrDesignPreviewLoading, setQrDesignPreviewLoading] = useState(false);
   const [settingsForm, setSettingsForm] = useState<ProjectSettingsForm>({
@@ -81,6 +88,7 @@ export function ProjectDetailPage() {
   const { mutateAsync: bulkStatus, isPending: isBulkStatusLoading } = useBulkStatus(id!);
   const { mutateAsync: bulkDelete, isPending: isBulkDeleting } = useBulkDelete(id!);
   const { mutateAsync: createEntry, isPending: isCreatingEntry } = useCreateEntry(id!);
+  const { mutateAsync: updateEntry, isPending: isUpdatingEntry } = useUpdateEntry(id!);
   const { mutateAsync: generateQr, isPending: isGeneratingQr } = useGenerateQr();
 
   const entries = entriesData?.items ?? [];
@@ -118,10 +126,7 @@ export function ProjectDetailPage() {
     qrApi
       .preview({
         content: qrDesignEntry.content,
-        design: {
-          ...defaultQrDesign,
-          foreground_color: qrDesignColor,
-        },
+        design: qrDesignOptions,
       })
       .then((blob) => {
         if (cancelled) return;
@@ -144,7 +149,7 @@ export function ProjectDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [defaultQrDesign, qrDesignColor, qrDesignEntry]);
+  }, [qrDesignEntry, qrDesignOptions]);
 
   if (projectLoading) return <PageLoader />;
   if (!project) return <div className="p-8 text-gray-500">Project not found.</div>;
@@ -208,6 +213,17 @@ export function ProjectDetailPage() {
     try {
       const blob = await importExportApi.exportData(id!, format);
       downloadBlob(blob, `${project.name}.${format}`);
+    } catch {
+      toast.error('Export failed');
+    }
+  };
+
+  const handleExportSelected = async (format: 'csv' | 'xlsx') => {
+    if (selectedIds.size === 0) return;
+    try {
+      const blob = await importExportApi.exportData(id!, format, Array.from(selectedIds));
+      downloadBlob(blob, `${project.name}-selected.${format}`);
+      toast.success(`Exported ${selectedIds.size} entries`);
     } catch {
       toast.error('Export failed');
     }
@@ -286,11 +302,29 @@ export function ProjectDetailPage() {
     }
   };
 
-  const handleGenerateQr = async (entryId: string, fgColor?: string): Promise<boolean> => {
+  const handleUpdateEntry = async (payload: CreateEntry) => {
+    if (!editEntry) return;
+    try {
+      await updateEntry({ id: editEntry.id, payload });
+      await queryClient.invalidateQueries({ queryKey: entryKeys.all(id!) });
+      toast.success('Entry updated');
+      setEditEntry(null);
+    } catch {
+      toast.error('Failed to update entry');
+    }
+  };
+
+  const handleGenerateQr = async (entryId: string, design?: QrDesignOptions): Promise<boolean> => {
     try {
       await generateQr({
         entryId,
-        payload: fgColor ? { fg_color: fgColor } : undefined,
+        payload: design
+          ? {
+              fg_color: design.foreground_color,
+              bg_color: design.background_color,
+              error_correction: design.error_correction,
+            }
+          : undefined,
       });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: entryKeys.all(id!) }),
@@ -306,7 +340,7 @@ export function ProjectDetailPage() {
 
   const openQrDesignModal = (entry: Entry) => {
     setQrDesignEntry(entry);
-    setQrDesignColor(defaultQrDesign.foreground_color);
+    setQrDesignOptions(defaultQrDesign);
   };
 
   const closeQrDesignModal = () => {
@@ -482,6 +516,7 @@ export function ProjectDetailPage() {
         selectedIds={selectedIds}
         onSelectAll={handleSelectAll}
         onSelectRow={handleSelectRow}
+        onEdit={(entry) => setEditEntry(entry)}
         onPreviewQr={handlePreviewEntryQr}
         onDownloadQr={handleDownloadEntryQr}
         onDelete={(entry) => setDeleteEntryId(entry.id)}
@@ -494,6 +529,7 @@ export function ProjectDetailPage() {
         onClearSelection={() => setSelectedIds(new Set())}
         onChangeStatus={handleBulkStatus}
         onDownloadZip={handleDownloadSelectedZip}
+        onExportData={handleExportSelected}
         onDelete={() => setBulkDeleteConfirmOpen(true)}
         onGenerateQr={handleBulkGenerateQr}
         loading={isBulkStatusLoading || isBulkDeleting || isGeneratingQr}
@@ -522,11 +558,20 @@ export function ProjectDetailPage() {
         onSubmit={handleCreateEntry}
       />
 
+      <EntryEditorModal
+        isOpen={Boolean(editEntry)}
+        mode="edit"
+        initialEntry={editEntry}
+        loading={isUpdatingEntry}
+        onClose={() => setEditEntry(null)}
+        onSubmit={handleUpdateEntry}
+      />
+
       <Modal
         isOpen={Boolean(qrDesignEntry)}
         onClose={closeQrDesignModal}
         title="Generate QR Code"
-        description="Choose a color and preview before saving the QR design."
+        description="Customize the QR design and preview before saving."
         size="md"
         footer={(
           <>
@@ -536,7 +581,7 @@ export function ProjectDetailPage() {
             <Button
               onClick={async () => {
                 if (!qrDesignEntry) return;
-                const success = await handleGenerateQr(qrDesignEntry.id, qrDesignColor);
+                const success = await handleGenerateQr(qrDesignEntry.id, qrDesignOptions);
                 if (success) closeQrDesignModal();
               }}
               loading={isGeneratingQr}
@@ -548,28 +593,14 @@ export function ProjectDetailPage() {
         )}
       >
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              QR color
-            </label>
-            <div className="flex items-center gap-2 border border-gray-300 rounded-lg p-2 bg-white w-fit">
-              <input
-                type="color"
-                value={qrDesignColor}
-                onChange={(event) => setQrDesignColor(event.target.value)}
-                className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
-                aria-label="Pick QR color"
-              />
-              <span className="text-sm font-mono text-gray-600">{qrDesignColor}</span>
-            </div>
-          </div>
+          <QrDesignOptionsForm value={qrDesignOptions} onChange={setQrDesignOptions} />
           <div className="flex items-center justify-center min-h-52 rounded-lg border border-gray-200 bg-gray-50">
             {qrDesignPreviewLoading && <p className="text-sm text-gray-500">Generating preview…</p>}
             {!qrDesignPreviewLoading && qrDesignPreviewUrl && (
               <img src={qrDesignPreviewUrl} alt="QR color preview" className="max-w-full rounded-lg border border-gray-200 bg-white" />
             )}
             {!qrDesignPreviewLoading && !qrDesignPreviewUrl && (
-              <p className="text-sm text-red-500">Preview unavailable. Please choose a color and try again.</p>
+              <p className="text-sm text-red-500">Preview unavailable. Please adjust settings and try again.</p>
             )}
           </div>
         </div>

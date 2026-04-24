@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { clsx } from 'clsx';
-import { Tag, Trash2, CheckCircle, X, QrCode, Download } from 'lucide-react';
+import { Tag, Trash2, CheckCircle, X, QrCode, Download, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui';
 import type { EntryStatus } from '@/types';
 
@@ -9,6 +9,7 @@ interface BulkActionsProps {
   onClearSelection: () => void;
   onChangeStatus: (status: EntryStatus) => void;
   onDownloadZip?: () => void;
+  onExportData?: (format: 'csv' | 'xlsx') => void;
   onDelete: () => void;
   onGenerateQr?: () => void;
   loading?: boolean;
@@ -26,6 +27,7 @@ export function BulkActions({
   onClearSelection,
   onChangeStatus,
   onDownloadZip,
+  onExportData,
   onDelete,
   onGenerateQr,
   loading,
@@ -113,8 +115,40 @@ export function BulkActions({
             className="bg-gray-700 text-white hover:bg-gray-600 border-0"
             leftIcon={<Download className="w-3.5 h-3.5" />}
           >
-            Download ZIP
+            Export QR Codes
           </Button>
+          <div className="w-px h-6 bg-gray-700" />
+        </>
+      )}
+
+      {onExportData && (
+        <>
+          <div className="relative group">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="bg-gray-700 text-white hover:bg-gray-600 border-0"
+              leftIcon={<FileDown className="w-3.5 h-3.5" />}
+            >
+              Export Data
+            </Button>
+            <div className="absolute bottom-full mb-1 left-0 hidden group-hover:block z-50 w-36">
+              <div className="bg-gray-800 border border-gray-600 rounded-xl shadow-lg py-1">
+                <button
+                  onClick={() => onExportData('csv')}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-700"
+                >
+                  Export CSV
+                </button>
+                <button
+                  onClick={() => onExportData('xlsx')}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-700"
+                >
+                  Export Excel
+                </button>
+              </div>
+            </div>
+          </div>
           <div className="w-px h-6 bg-gray-700" />
         </>
       )}

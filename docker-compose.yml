@@ -19,6 +19,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - nginx-network
 
   frontend:
     build:
@@ -29,6 +31,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    networks:
+      - nginx-network
 
 volumes:
   qrcodepdf-data:

@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     debug: bool = False
     demo_mode: bool = False
 
-    # Data directory (persistent volume mount point)
-    data_dir: Path = Path("/data")
+    # Data directory (defaults to a local writable path; override with DATA_DIR, e.g. /data in Docker)
+    data_dir: Path = Path("data")
 
     # Database
     @property

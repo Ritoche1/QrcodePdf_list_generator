@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type {
+  AppConfig,
   Project,
   CreateProject,
   UpdateProject,
@@ -19,6 +20,14 @@ import {
   STANDARD_QR_ERROR_CORRECTION,
   STANDARD_QR_FOREGROUND_COLOR,
 } from '@/lib/qrDefaults';
+import {
+  createDemoBlob,
+  demoEntries,
+  demoPdfFiles,
+  demoProject,
+  demoStats,
+} from '@/lib/demoData';
+import { isDemoMode } from '@/lib/runtimeConfig';
 
 export const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || '/api/v1';
 
@@ -61,6 +70,10 @@ function formatApiErrorMessage(payload: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+function demoModeError(action: string): Error {
+  return new Error(`${action} is disabled while demo mode is enabled`);
 }
 
 interface BackendQrPreviewRequest {
@@ -280,31 +293,43 @@ apiClient.interceptors.response.use(
   }
 );
 
+export const appApi = {
+  getConfig: async (): Promise<AppConfig> => {
+    const { data } = await apiClient.get<AppConfig>('/config');
+    return data;
+  },
+};
+
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 export const projectsApi = {
   list: async (): Promise<Project[]> => {
+    if (isDemoMode()) return [demoProject];
     const { data } = await apiClient.get<Project[] | { items?: Project[] }>('/projects');
     const rawItems = Array.isArray(data) ? data : data.items ?? [];
     return rawItems.map((item) => normalizeProject(item));
   },
 
   create: async (payload: CreateProject): Promise<Project> => {
+    if (isDemoMode()) throw demoModeError('Project creation');
     const { data } = await apiClient.post<Project>('/projects', payload);
     return normalizeProject(data);
   },
 
   get: async (id: string): Promise<Project> => {
+    if (isDemoMode()) return { ...demoProject, id };
     const { data } = await apiClient.get<Project>(`/projects/${id}`);
     return normalizeProject(data);
   },
 
   update: async (id: string, payload: UpdateProject): Promise<Project> => {
+    if (isDemoMode()) throw demoModeError('Project updates');
     const { data } = await apiClient.put<Project>(`/projects/${id}`, payload);
     return normalizeProject(data);
   },
 
   delete: async (id: string): Promise<void> => {
+    if (isDemoMode()) throw demoModeError('Project deletion');
     await apiClient.delete(`/projects/${id}`);
   },
 };
@@ -316,6 +341,19 @@ export const entriesApi = {
     projectId: string,
     filters: EntryFilters = {}
   ): Promise<PaginatedResponse<Entry>> => {
+    if (isDemoMode()) {
+      const demoItems = demoEntries.map((entry) => ({
+        ...entry,
+        project_id: projectId,
+      }));
+      return {
+        items: demoItems,
+        total: demoItems.length,
+        page: 1,
+        per_page: filters.per_page ?? 20,
+        pages: 1,
+      };
+    }
     const params: Record<string, string | number | boolean> = {};
     if (filters.search) params.search = filters.search;
     if (filters.status) params.status = filters.status;
@@ -335,6 +373,7 @@ export const entriesApi = {
   },
 
   create: async (projectId: string, payload: CreateEntry): Promise<Entry> => {
+    if (isDemoMode()) throw demoModeError('Entry creation');
     const { content, ...rest } = payload;
     const { data } = await apiClient.post<Entry>(
       `/projects/${projectId}/entries`,
@@ -350,6 +389,7 @@ export const entriesApi = {
     projectId: string,
     entries: CreateEntry[]
   ): Promise<Entry[]> => {
+    if (isDemoMode()) throw demoModeError('Bulk entry creation');
     const request = entries.map(({ content, ...rest }) => ({
       ...rest,
       content_data: mapEntryPayloadContent(content),
@@ -362,6 +402,7 @@ export const entriesApi = {
   },
 
   update: async (id: string, payload: UpdateEntry): Promise<Entry> => {
+    if (isDemoMode()) throw demoModeError('Entry updates');
     const { content, ...rest } = payload;
     const request: Record<string, unknown> = { ...rest };
     if (content) {
@@ -372,10 +413,12 @@ export const entriesApi = {
   },
 
   delete: async (id: string): Promise<void> => {
+    if (isDemoMode()) throw demoModeError('Entry deletion');
     await apiClient.delete(`/entries/${id}`);
   },
 
   bulkStatus: async (ids: string[], status: string): Promise<void> => {
+    if (isDemoMode()) throw demoModeError('Bulk status updates');
     await apiClient.patch('/entries/bulk-status', { entry_ids: ids, status });
   },
 
@@ -384,10 +427,12 @@ export const entriesApi = {
     tags: string[],
     action: 'add' | 'remove' | 'set'
   ): Promise<void> => {
+    if (isDemoMode()) throw demoModeError('Bulk tag updates');
     await apiClient.patch('/entries/bulk-tags', { ids, tags, action });
   },
 
   bulkDelete: async (ids: string[]): Promise<{ deleted: number }> => {
+    if (isDemoMode()) throw demoModeError('Bulk delete');
     const { data } = await apiClient.post<{ deleted: number }>('/entries/bulk-delete', { entry_ids: ids });
     return data;
   },
@@ -405,11 +450,13 @@ export const qrApi = {
   },
 
   generate: async (entryId: string, payload?: BackendQrGenerateRequest): Promise<Entry> => {
+    if (isDemoMode()) throw demoModeError('QR generation');
     const { data } = await apiClient.post<Entry>(`/qr/generate/${entryId}`, payload ?? {});
     return normalizeEntry(data);
   },
 
   generateBulk: async (entryIds: string[]): Promise<void> => {
+    if (isDemoMode()) throw demoModeError('Bulk QR generation');
     const normalizedEntryIds = entryIds
       .filter((entryId): entryId is string => typeof entryId === 'string' && entryId.trim().length > 0)
       .map((entryId) => Number(entryId))
@@ -428,6 +475,9 @@ export const pdfApi = {
     options: PdfLayoutOptions,
     design?: Pick<QrDesignOptions, 'foreground_color' | 'background_color' | 'error_correction'>
   ): Promise<Blob> => {
+    if (isDemoMode()) {
+      return createDemoBlob('Simulated PDF generation');
+    }
     const request = mapPdfLayoutRequest(options, design);
     const { data } = await apiClient.post<Blob>(
       `/projects/${projectId}/pdf`,
@@ -442,6 +492,9 @@ export const pdfApi = {
     options: PdfLayoutOptions,
     design?: Pick<QrDesignOptions, 'foreground_color' | 'background_color' | 'error_correction'>
   ): Promise<Blob> => {
+    if (isDemoMode()) {
+      return createDemoBlob('Simulated PDF preview');
+    }
     const request = mapPdfLayoutRequest(options, design);
     const { data } = await apiClient.post<Blob>(
       `/projects/${projectId}/pdf/preview`,
@@ -452,11 +505,15 @@ export const pdfApi = {
   },
 
   list: async (projectId: string): Promise<ProjectPdfFile[]> => {
+    if (isDemoMode()) return demoPdfFiles;
     const { data } = await apiClient.get<ProjectPdfFile[]>(`/projects/${projectId}/pdfs`);
     return Array.isArray(data) ? data : [];
   },
 
   download: async (projectId: string, fileName: string): Promise<Blob> => {
+    if (isDemoMode()) {
+      return createDemoBlob(fileName, 'text/html');
+    }
     const { data } = await apiClient.get<Blob>(
       `/projects/${projectId}/pdfs/download`,
       { params: { file_name: fileName }, responseType: 'blob' }
@@ -483,6 +540,7 @@ export const importExportApi = {
     projectId: string,
     file: File
   ): Promise<ImportPreviewResult> => {
+    if (isDemoMode()) throw demoModeError('Import preview');
     const form = new FormData();
     form.append('file', file);
     const { data } = await apiClient.post<ImportPreviewResult>(
@@ -497,6 +555,7 @@ export const importExportApi = {
     projectId: string,
     payload: ImportConfirmPayload
   ): Promise<{ imported: number }> => {
+    if (isDemoMode()) throw demoModeError('Import');
     const { data } = await apiClient.post<{ imported: number }>(
       `/projects/${projectId}/import/confirm`,
       payload
@@ -505,6 +564,7 @@ export const importExportApi = {
   },
 
   exportZip: async (projectId: string, entryIds?: string[]): Promise<Blob> => {
+    if (isDemoMode()) throw demoModeError('Export');
     const normalizedEntryIds = Array.isArray(entryIds)
       ? entryIds
           .filter((entryId): entryId is string => typeof entryId === 'string' && entryId.trim().length > 0)
@@ -549,6 +609,7 @@ export const importExportApi = {
 
 export const statsApi = {
   get: async (): Promise<Stats> => {
+    if (isDemoMode()) return demoStats;
     const { data } = await apiClient.get<
       Partial<Stats> & {
         entries_by_status?: { generated?: number };

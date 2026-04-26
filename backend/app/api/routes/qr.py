@@ -11,7 +11,9 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_session
+from app.core.demo import demo_mode_forbidden
 from app.core.qr_defaults import (
     STANDARD_QR_BACKGROUND_COLOR,
     STANDARD_QR_ERROR_CORRECTION,
@@ -84,6 +86,8 @@ async def qr_generate(
     Generate and persist a QR code image for an existing entry.
     Updates the entry's qr_image_path and status to 'generated'.
     """
+    if settings.demo_mode:
+        raise demo_mode_forbidden("QR generation for project entries")
     entry = await session.get(Entry, entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -167,6 +171,8 @@ async def qr_generate_bulk(
     payload: QRBulkGenerateRequest,
     session: AsyncSession = Depends(get_session),
 ) -> QRBulkGenerateResponse:
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Bulk QR generation")
     stmt = select(Entry).where(Entry.id.in_(payload.entry_ids))
     result = await session.execute(stmt)
     entries = result.scalars().all()

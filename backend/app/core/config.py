@@ -10,9 +10,10 @@ class Settings(BaseSettings):
     app_name: str = "QR Code PDF Generator"
     app_version: str = "1.0.0"
     debug: bool = False
+    demo_mode: bool = False
 
-    # Data directory (persistent volume mount point)
-    data_dir: Path = Path("/data")
+    # Data directory (defaults to a local writable path; override with DATA_DIR, e.g. /data in Docker)
+    data_dir: Path = Path("data")
 
     # Database
     @property

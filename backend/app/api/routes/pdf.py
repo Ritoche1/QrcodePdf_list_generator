@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.demo import demo_mode_forbidden
 from app.core.qr_defaults import (
     STANDARD_QR_BACKGROUND_COLOR,
     STANDARD_QR_ERROR_CORRECTION,
@@ -97,6 +98,8 @@ async def generate_pdf(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Generate a PDF for a project and return the file."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("PDF generation")
     project, entries = await _get_project_entries(project_id, payload.entry_ids, session)
     layout = payload.layout.model_dump()
     layout["fg_color"] = (
@@ -133,6 +136,8 @@ async def download_pdf(
     session: AsyncSession = Depends(get_session),
 ) -> FileResponse:
     """Download the latest generated PDF for a project."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("PDF downloads")
     pdf_path = settings.files_dir / "pdf" / f"project_{project_id}.pdf"
     if not pdf_path.exists():
         raise HTTPException(status_code=404, detail="PDF not yet generated for this project")
@@ -149,6 +154,8 @@ async def list_pdfs(
     session: AsyncSession = Depends(get_session),
 ) -> list[dict[str, Any]]:
     """List all generated PDFs for a project."""
+    if settings.demo_mode:
+        return []
     project = await session.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -162,6 +169,8 @@ async def download_project_pdf(
     session: AsyncSession = Depends(get_session),
 ) -> FileResponse:
     """Download a specific generated PDF for a project."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("PDF downloads")
     project = await session.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -189,6 +198,8 @@ async def pdf_preview(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Generate the first-page preview PNG for a project PDF."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("PDF previews")
     project, entries = await _get_project_entries(project_id, payload.entry_ids, session)
     layout = payload.layout.model_dump()
     layout["fg_color"] = (

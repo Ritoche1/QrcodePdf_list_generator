@@ -10,6 +10,7 @@ import {
   Menu,
   X,
 } from 'lucide-react';
+import { isDemoMode } from '@/lib/runtimeConfig';
 
 interface NavItem {
   label: string;
@@ -48,6 +49,10 @@ export function Sidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const demoMode = isDemoMode();
+  const visibleNavItems = demoMode
+    ? navItems.filter((item) => item.label !== 'Projects')
+    : navItems;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(`(min-width: ${MD_BREAKPOINT_PX}px)`);
@@ -101,7 +106,7 @@ export function Sidebar() {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <ul className="space-y-0.5">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const isActive = item.exact
                 ? location.pathname === item.to
                 : location.pathname.startsWith(item.to);
@@ -159,7 +164,9 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className="px-4 py-3 border-t border-gray-100">
-          <p className="text-xs text-gray-400 text-center">QRCodePDF v1.0</p>
+          <p className="text-xs text-gray-400 text-center">
+            QRCodePDF v1.0{demoMode ? ' · Demo' : ''}
+          </p>
         </div>
       </aside>
     </>

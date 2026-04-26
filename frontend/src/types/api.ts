@@ -11,6 +11,13 @@ export interface ApiError {
   status_code?: number;
 }
 
+export interface AppConfig {
+  app_name: string;
+  app_version: string;
+  debug: boolean;
+  demo_mode: boolean;
+}
+
 export interface Stats {
   total_projects: number;
   total_entries: number;

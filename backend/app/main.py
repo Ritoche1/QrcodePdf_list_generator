@@ -46,4 +46,4 @@ app.mount("/files", StaticFiles(directory=str(settings.files_dir)), name="files"
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "version": settings.app_version}
+    return {"status": "ok", "version": settings.app_version, "demo_mode": settings.demo_mode}

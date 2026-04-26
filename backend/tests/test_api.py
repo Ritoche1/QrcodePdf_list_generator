@@ -17,6 +17,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from app.core.config import settings
 from app.core.qr_defaults import (
     STANDARD_QR_BACKGROUND_COLOR,
     STANDARD_QR_ERROR_CORRECTION,
@@ -54,6 +55,27 @@ async def test_health(client: AsyncClient):
     r = await client.get("/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_app_config_includes_demo_mode_flag(client: AsyncClient):
+    r = await client.get("/api/v1/config")
+    assert r.status_code == 200
+    payload = r.json()
+    assert payload["app_name"] == "QR Code PDF Generator"
+    assert payload["demo_mode"] is False
+
+
+@pytest.mark.asyncio
+async def test_demo_mode_blocks_project_creation(client: AsyncClient):
+    previous_demo_mode = settings.demo_mode
+    settings.demo_mode = True
+    try:
+        r = await client.post("/api/v1/projects", json={"name": "Blocked in demo"})
+        assert r.status_code == 403
+        assert "demo mode" in r.json()["detail"].lower()
+    finally:
+        settings.demo_mode = previous_demo_mode
 
 
 @pytest.mark.asyncio

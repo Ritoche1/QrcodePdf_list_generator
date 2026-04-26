@@ -207,4 +207,3 @@ async def qr_generate_bulk(
         errors=errors,
         results=responses,
     )
-

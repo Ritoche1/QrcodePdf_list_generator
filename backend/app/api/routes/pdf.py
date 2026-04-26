@@ -256,4 +256,3 @@ async def export_zip(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="project_{project_id}_qrcodes.zip"'},
     )
-

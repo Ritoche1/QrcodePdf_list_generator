@@ -23,8 +23,6 @@ The hosted demo runs with `DEMO_MODE=true`:
 
 ## Screenshots
 
-> **Where to place your screenshots:**
-> Create a `docs/screenshots/` directory and add the images there. Then they'll render automatically in this README.
 
 | Dashboard | Project Detail |
 |-----------|---------------|

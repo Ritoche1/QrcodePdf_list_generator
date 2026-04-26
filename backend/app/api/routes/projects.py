@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.demo import demo_mode_forbidden
 from app.core.database import get_session
 from app.core.qr_defaults import (
     STANDARD_QR_BACKGROUND_COLOR,
@@ -57,6 +59,8 @@ async def create_project(
     session: AsyncSession = Depends(get_session),
 ) -> ProjectWithCount:
     """Create a new project."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Project creation")
     project = Project(
         name=payload.name,
         description=payload.description,
@@ -135,6 +139,8 @@ async def update_project(
     session: AsyncSession = Depends(get_session),
 ) -> ProjectResponse:
     """Update a project's name or description."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Project updates")
     project = await session.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -177,6 +183,8 @@ async def delete_project(
     session: AsyncSession = Depends(get_session),
 ):
     """Delete a project and all its entries."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Project deletion")
     project = await session.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

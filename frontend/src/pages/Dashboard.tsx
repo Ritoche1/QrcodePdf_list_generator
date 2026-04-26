@@ -3,6 +3,7 @@ import { FolderOpen, QrCode, FileDown, TrendingUp, Plus, ArrowRight, } from 'luc
 import { PageHeader } from '@/components/layout';
 import { Card, Button, Badge } from '@/components/ui';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
+import { isDemoMode } from '@/lib/runtimeConfig';
 import { useProjects } from '@/hooks/useProjects';
 import { useStats } from '@/hooks/useStats';
 
@@ -34,6 +35,7 @@ function StatCard({ title, value, icon: Icon, description, iconBg, iconColor }: 
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const demoMode = isDemoMode();
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const { data: stats, isLoading: statsLoading } = useStats();
   const projectsList = Array.isArray(projects) ? projects : [];
@@ -59,7 +61,7 @@ export function Dashboard() {
             leftIcon={<FolderOpen className="w-4 h-4" />}
             onClick={() => navigate('/projects')}
           >
-            Project
+            {demoMode ? 'Demo project' : 'Projects'}
           </Button>
         }
       />
@@ -166,14 +168,16 @@ export function Dashboard() {
           <Card>
             <h2 className="text-base font-semibold text-gray-900 mb-5">Quick Actions</h2>
             <div className="space-y-3">
-              <QuickAction
-                icon={Plus}
-                label="New Project"
-                description="Create a project to organize QR codes"
-                onClick={() => navigate('/projects')}
-                iconBg="bg-indigo-100"
-                iconColor="text-indigo-600"
-              />
+              {!demoMode && (
+                <QuickAction
+                  icon={Plus}
+                  label="New Project"
+                  description="Create a project to organize QR codes"
+                  onClick={() => navigate('/projects')}
+                  iconBg="bg-indigo-100"
+                  iconColor="text-indigo-600"
+                />
+              )}
               <QuickAction
                 icon={QrCode}
                 label="Create Single QR"
@@ -182,18 +186,20 @@ export function Dashboard() {
                 iconBg="bg-green-100"
                 iconColor="text-green-600"
               />
-              <QuickAction
-                icon={FileDown}
-                label="Generate PDF"
-                description="Export your QR codes as a PDF"
-                onClick={() =>
-                  recentProjects[0]
-                    ? navigate(`/projects/${recentProjects[0].id}/generate`)
-                    : navigate('/projects')
-                }
-                iconBg="bg-purple-100"
-                iconColor="text-purple-600"
-              />
+              {!demoMode && (
+                <QuickAction
+                  icon={FileDown}
+                  label="Generate PDF"
+                  description="Export your QR codes as a PDF"
+                  onClick={() =>
+                    recentProjects[0]
+                      ? navigate(`/projects/${recentProjects[0].id}/generate`)
+                      : navigate('/projects')
+                  }
+                  iconBg="bg-purple-100"
+                  iconColor="text-purple-600"
+                />
+              )}
             </div>
           </Card>
         </div>

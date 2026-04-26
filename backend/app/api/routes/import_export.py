@@ -10,6 +10,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.demo import demo_mode_forbidden
 from app.core.database import get_session
 from app.models.entry import Entry
 from app.models.project import Project
@@ -44,6 +46,8 @@ async def import_preview(
     Upload a CSV or XLSX file and return a column preview with suggested mappings.
     Does not import any data.
     """
+    if settings.demo_mode:
+        raise demo_mode_forbidden("CSV/XLSX import preview")
     project = await session.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -88,6 +92,8 @@ async def import_confirm(
     """
     Confirm the column mapping and import data from the previously uploaded file.
     """
+    if settings.demo_mode:
+        raise demo_mode_forbidden("CSV/XLSX import")
     project = await session.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -149,6 +155,8 @@ async def export_data(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Export project entries as CSV or XLSX."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Data export")
     project = await session.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -201,6 +209,8 @@ async def export_data_selected(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Export selected entries as CSV or XLSX. Filters by entry_ids when provided."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Data export")
     project = await session.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

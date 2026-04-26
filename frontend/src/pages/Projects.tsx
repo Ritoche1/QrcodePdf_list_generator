@@ -6,16 +6,19 @@ import { Button, Badge, Input, Modal, EmptyState, ConfirmModal } from '@/compone
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { useProjects, useCreateProject, useDeleteProject } from '@/hooks/useProjects';
 import { useToastContext } from '@/components/ui/Toast';
+import { isDemoMode } from '@/lib/runtimeConfig';
 import type { CreateProject } from '@/types';
 
 function ProjectCard({
   project,
   onDelete,
   onClick,
+  readOnly,
 }: {
   project: import('@/types').Project;
   onDelete: () => void;
   onClick: () => void;
+  readOnly?: boolean;
 }) {
   return (
     <div
@@ -26,12 +29,14 @@ function ProjectCard({
         <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0">
           <FolderOpen className="w-5 h-5" />
         </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        {!readOnly && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
       <h3 className="text-sm font-semibold text-gray-900 mb-0.5 truncate">{project.name}</h3>
       {project.description && (
@@ -182,6 +187,7 @@ export function ProjectsPage() {
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const demoMode = isDemoMode();
   const { data: projects, isLoading } = useProjects();
   const { mutateAsync: deleteProject, isPending: isDeleting } = useDeleteProject();
   const toast = useToastContext();
@@ -214,12 +220,14 @@ export function ProjectsPage() {
         title="Projects"
         description={`${projects?.length ?? 0} project${projects?.length !== 1 ? 's' : ''}`}
         actions={
-          <Button
-            leftIcon={<Plus className="w-4 h-4" />}
-            onClick={() => setCreateOpen(true)}
-          >
-            New Project
-          </Button>
+          !demoMode && (
+            <Button
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => setCreateOpen(true)}
+            >
+              New Project
+            </Button>
+          )
         }
       />
 
@@ -246,7 +254,7 @@ export function ProjectsPage() {
               : 'Create your first project to start organizing QR code entries.'
           }
           action={
-            !search && (
+            !demoMode && !search && (
               <Button
                 leftIcon={<Plus className="w-4 h-4" />}
                 onClick={() => setCreateOpen(true)}
@@ -264,12 +272,13 @@ export function ProjectsPage() {
               project={project}
               onDelete={() => setDeleteId(project.id)}
               onClick={() => navigate(`/projects/${project.id}`)}
+              readOnly={demoMode}
             />
           ))}
         </div>
       )}
 
-      <CreateProjectModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
+      {!demoMode && <CreateProjectModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />}
       <ConfirmModal
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}

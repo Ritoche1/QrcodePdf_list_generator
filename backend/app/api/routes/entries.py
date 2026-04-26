@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.demo import demo_mode_forbidden
 from app.core.database import get_session
 from app.models.entry import Entry, EntryStatus, QrGenerationStatus
 from app.models.project import Project
@@ -140,6 +142,8 @@ async def create_entry(
     session: AsyncSession = Depends(get_session),
 ) -> EntryResponse:
     """Create a single entry in a project."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Entry creation")
     await _get_project_or_404(project_id, session)
 
     entry = Entry(
@@ -167,6 +171,8 @@ async def create_entries_bulk(
     session: AsyncSession = Depends(get_session),
 ) -> list[EntryResponse]:
     """Create multiple entries at once."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Bulk entry creation")
     await _get_project_or_404(project_id, session)
 
     if not payload:
@@ -201,6 +207,8 @@ async def update_entry(
     session: AsyncSession = Depends(get_session),
 ) -> EntryResponse:
     """Update an entry."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Entry updates")
     entry = await session.get(Entry, entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -252,6 +260,8 @@ async def delete_entry(
     session: AsyncSession = Depends(get_session),
 ):
     """Delete a single entry."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Entry deletion")
     entry = await session.get(Entry, entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -265,6 +275,8 @@ async def bulk_update_status(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Bulk update status for a list of entries."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Bulk status updates")
     stmt = (
         update(Entry)
         .where(Entry.id.in_(payload.entry_ids))
@@ -282,6 +294,8 @@ async def bulk_update_tags(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Bulk add or remove tags for a list of entries."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Bulk tag updates")
     stmt = select(Entry).where(Entry.id.in_(payload.entry_ids))
     result = await session.execute(stmt)
     entries = result.scalars().all()
@@ -311,6 +325,8 @@ async def bulk_delete_entries(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Bulk delete a list of entries."""
+    if settings.demo_mode:
+        raise demo_mode_forbidden("Bulk delete")
     stmt = delete(Entry).where(Entry.id.in_(payload.entry_ids)).returning(Entry.id)
     result = await session.execute(stmt)
     deleted_ids = [row[0] for row in result.fetchall()]

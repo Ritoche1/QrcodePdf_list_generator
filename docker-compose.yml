@@ -12,6 +12,7 @@ services:
     environment:
       - DATA_DIR=/data
       - DATABASE_URL=sqlite+aiosqlite:///data/qrcodepdf.db
+      - DEMO_MODE=true
     ports:
       - "8000:8000"
     healthcheck:

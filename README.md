@@ -246,6 +246,7 @@ QrcodePdf_list_generator/
 |----------|---------|-------------|
 | `DATA_DIR` | `/data` | Directory for SQLite DB and generated files |
 | `DATABASE_URL` | `sqlite+aiosqlite:///data/qrcodepdf.db` | Database connection string |
+| `DEMO_MODE` | `false` | Enable showcase mode with mocked data and restricted write actions |
 | `VITE_API_URL` | `http://localhost:8000/api/v1` | Backend URL (frontend build-time) |
 
 ---

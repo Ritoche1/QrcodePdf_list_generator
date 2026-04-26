@@ -2,9 +2,12 @@
 
 from fastapi import APIRouter
 
-from app.api.routes import entries, import_export, pdf, projects, qr, stats
+from app.api.routes import config, entries, import_export, pdf, projects, qr, stats
 
 api_router = APIRouter()
+
+# App config
+api_router.include_router(config.router)
 
 # Projects
 api_router.include_router(projects.router)

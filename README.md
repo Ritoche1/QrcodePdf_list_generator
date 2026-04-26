@@ -10,6 +10,15 @@
 
 QRCodePDF is an open-source, self-hosted web application for generating QR codes in bulk and exporting them as professional, print-ready PDF documents. Manage your QR entries in projects, customize designs, preview layouts, and download — no account required.
 
+## Live Demo
+
+Try the public demo: [https://qr.ritoche.site](https://qr.ritoche.site)
+
+The hosted demo runs with `DEMO_MODE=true`:
+- data shown on the site may be mocked or reset
+- some write/export operations are restricted or simulated (for example PDF generation)
+- standalone QR creation remains available for quick testing
+
 ---
 
 ## Screenshots
@@ -75,6 +84,8 @@ docker compose up -d
 ```
 
 Open [http://localhost](http://localhost) in your browser.
+
+Want to see it first? Visit the live demo at [https://qr.ritoche.site](https://qr.ritoche.site).
 
 - **Frontend**: port 80 (nginx)
 - **Backend API**: port 8000 (FastAPI)

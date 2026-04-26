@@ -7,8 +7,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.demo import demo_mode_forbidden
 from app.core.database import get_session
+from app.core.demo import demo_mode_forbidden
 from app.core.qr_defaults import (
     STANDARD_QR_BACKGROUND_COLOR,
     STANDARD_QR_ERROR_CORRECTION,
@@ -191,3 +191,4 @@ async def delete_project(
 
     await session.delete(project)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+

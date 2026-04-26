@@ -10,8 +10,8 @@ from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.demo import demo_mode_forbidden
 from app.core.database import get_session
+from app.core.demo import demo_mode_forbidden
 from app.models.entry import Entry, EntryStatus, QrGenerationStatus
 from app.models.project import Project
 from app.schemas.entry import (

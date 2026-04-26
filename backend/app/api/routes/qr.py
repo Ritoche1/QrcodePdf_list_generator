@@ -11,8 +11,8 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_session
 from app.core.config import settings
+from app.core.database import get_session
 from app.core.demo import demo_mode_forbidden
 from app.core.qr_defaults import (
     STANDARD_QR_BACKGROUND_COLOR,
@@ -207,3 +207,4 @@ async def qr_generate_bulk(
         errors=errors,
         results=responses,
     )
+

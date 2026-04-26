@@ -13,8 +13,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.demo import demo_mode_forbidden
 from app.core.database import get_session
+from app.core.demo import demo_mode_forbidden
 from app.core.qr_defaults import (
     STANDARD_QR_BACKGROUND_COLOR,
     STANDARD_QR_ERROR_CORRECTION,
@@ -256,3 +256,4 @@ async def export_zip(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="project_{project_id}_qrcodes.zip"'},
     )
+

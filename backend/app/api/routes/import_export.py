@@ -11,8 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.demo import demo_mode_forbidden
 from app.core.database import get_session
+from app.core.demo import demo_mode_forbidden
 from app.models.entry import Entry
 from app.models.project import Project
 from app.services.export_service import export_entries_csv, export_entries_xlsx
